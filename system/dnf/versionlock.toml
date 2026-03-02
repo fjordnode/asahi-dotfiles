@@ -1,0 +1,29 @@
+version = "1.0"
+
+[[packages]]
+name = "hyprland"
+comment = "Added by 'versionlock add' command on 2026-02-28 12:08:00"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.54.0-1.fc42"
+
+[[packages]]
+name = "hypridle"
+comment = "Added by 'versionlock add' command on 2026-02-28 12:08:00"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1.7-4.fc42"
+
+[[packages]]
+name = "hypridle"
+comment = "Added by 'versionlock add' command on 2026-02-28 12:08:00"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "0.1.7-3.fc42"
+

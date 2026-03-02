@@ -1,0 +1,3 @@
+dev.vencord.Vesktop
+org.gnome.Calculator
+org.localsend.localsend_app

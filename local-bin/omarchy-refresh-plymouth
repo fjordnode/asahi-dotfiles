@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Rebuild Plymouth theme.
+# Fedora port: uses dracut instead of mkinitcpio.
+
+OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+
+if [[ -d "$OMARCHY_PATH/default/plymouth" ]]; then
+  sudo cp "$OMARCHY_PATH/default/plymouth/"* /usr/share/plymouth/themes/omarchy/ 2>/dev/null || true
+fi
+
+sudo plymouth-set-default-theme omarchy 2>/dev/null || true
+
+# Fedora uses dracut, not mkinitcpio
+if command -v dracut &>/dev/null; then
+  sudo dracut -f
+elif command -v mkinitcpio &>/dev/null; then
+  sudo mkinitcpio -P
+fi

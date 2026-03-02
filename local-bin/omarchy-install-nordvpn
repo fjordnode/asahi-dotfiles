@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Install the NordVPN service.
+# Fedora port: uses NordVPN's official Linux installer.
+
+set -e
+
+echo "Installing NordVPN..."
+
+if ! command -v nordvpn &>/dev/null; then
+  sh <(curl -sSf https://downloads.nordcdn.com/apps/linux/install.sh)
+fi
+
+echo "Enabling NordVPN daemon..."
+sudo systemctl enable --now nordvpnd
+
+echo "Adding user to nordvpn group..."
+sudo usermod -aG nordvpn "$USER"
+
+echo -e "\nNordVPN installed! After reboot, run 'nordvpn login' to authenticate."
+
+echo
+if command -v gum &>/dev/null; then
+  gum confirm "Reboot now to make NordVPN usable?" && sudo reboot now
+else
+  read -rp "Reboot now? [y/N] " yn
+  [[ "$yn" =~ ^[Yy]$ ]] && sudo reboot now
+fi

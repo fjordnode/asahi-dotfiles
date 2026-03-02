@@ -1,0 +1,13 @@
+alternateved:eza
+atim:lazydocker
+atim:lazygit
+erikreider:SwayNotificationCenter
+erikreider:swayosd
+errornointernet:packages
+errornointernet:walker
+lihaohong:yazi
+scottames:ghostty
+sdegler:hyprland
+solopasha:hyprland
+tofik:nwg-shell
+wezfurlong:wezterm-nightly

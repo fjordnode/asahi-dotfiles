@@ -1,0 +1,5 @@
+#!/bin/bash
+# Wrapper: prefer real hypridle, otherwise run local idle daemon fallback.
+[[ -x /usr/bin/hypridle ]] && exec /usr/bin/hypridle "$@"
+[[ -x "$HOME/.config/hypr/idle-daemon.sh" ]] && exec "$HOME/.config/hypr/idle-daemon.sh"
+exit 0

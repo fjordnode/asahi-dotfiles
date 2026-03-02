@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Show only image entries from clipboard, paste selection into focused window
+selected=$(cliphist list | grep '^\S*\s\[\[ binary data' | walker --dmenu --placeholder " Images...")
+if [ -n "$selected" ]; then
+  echo "$selected" | cliphist decode | wl-copy
+  sleep 0.1
+  wtype -M shift -k Insert -m shift
+fi

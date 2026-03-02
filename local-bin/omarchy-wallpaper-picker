@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Visual wallpaper picker — WallRizz thumbnail grid
+# Pick a collection first, then browse wallpapers
+
+choice=$(printf "Omarchy Themes\nAesthetic Wallpapers" | fzf --header="Pick collection" --height=~5 --reverse --no-info)
+
+[ -z "$choice" ] && exit 0
+
+# Use persistent cache dir so the background symlink doesn't break after exit
+cachedir="$HOME/.cache/omarchy-wallpaper-picker"
+rm -rf "$cachedir"
+mkdir -p "$cachedir"
+
+case "$choice" in
+  Omarchy*)
+    find ~/.local/share/omarchy/themes/*/backgrounds/ -type f 2>/dev/null | while read -r f; do
+      ln -sf "$f" "$cachedir/"
+    done
+    ;;
+  Aesthetic*)
+    ln -sf ~/Pictures/aesthetic-wallpapers/images/* "$cachedir/"
+    ;;
+esac
+
+WallRizz -e -d "$cachedir" --img-size 30x10 --grid-size 3x4 --color-backend "echo '#000000 #111111 #222222 #333333 #444444 #555555 #666666 #777777 #888888 #999999 #aaaaaa #bbbbbb #cccccc #dddddd #eeeeee #ffffff'"

@@ -1,0 +1,647 @@
+#!/bin/bash
+
+set -euo pipefail
+
+SHARE_BIN="$HOME/.local/share/omarchy/bin"
+STATE_DIR="$HOME/.local/state/omarchy-native"
+mkdir -p "$STATE_DIR"
+
+notify() {
+  local title="$1"
+  local body="${2:-}"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$title" "$body"
+  fi
+}
+
+fallback_run() {
+  local cmd="$1"
+  shift || true
+
+  local target="$SHARE_BIN/$cmd"
+  if [[ -x $target ]]; then
+    "$target" "$@"
+    return $?
+  fi
+
+  return 127
+}
+
+run_terminal() {
+  if command -v uwsm-app >/dev/null 2>&1 && command -v xdg-terminal-exec >/dev/null 2>&1; then
+    uwsm-app -- xdg-terminal-exec -e "$@"
+  elif command -v kitty >/dev/null 2>&1; then
+    kitty -e "$@"
+  else
+    "$@"
+  fi
+}
+
+pick() {
+  local prompt="$1"
+  shift
+
+  if command -v fuzzel >/dev/null 2>&1; then
+    printf '%s\n' "$@" | fuzzel --dmenu --prompt "$prompt "
+  elif command -v rofi >/dev/null 2>&1; then
+    printf '%s\n' "$@" | rofi -dmenu -p "$prompt"
+  else
+    printf '%s\n' "$1"
+  fi
+}
+
+active_window_address() {
+  hyprctl activewindow -j 2>/dev/null | jq -r '.address // empty'
+}
+
+menu_main() {
+  local choice
+  choice=$(pick "Menu" "Apps" "Capture" "Share" "Install" "Remove" "Update" "Theme" "Background" "System")
+
+  case "$choice" in
+    "Apps") omarchy-launch-walker ;;
+    "Capture") menu_capture ;;
+    "Share") menu_share ;;
+    "Install") menu_install ;;
+    "Remove") menu_remove ;;
+    "Update") menu_update ;;
+    "Theme") omarchy-launch-walker -m menus:omarchythemes ;;
+    "Background") omarchy-launch-walker -m menus:omarchyBackgroundSelector ;;
+    "System") menu_system ;;
+  esac
+}
+
+toggle_screenrecord() {
+  local outdir="$HOME/Videos/Recordings"
+  mkdir -p "$outdir"
+
+  if pgrep -x wf-recorder >/dev/null 2>&1; then
+    pkill -x wf-recorder
+    notify "Screenrecord" "Stopped wf-recorder"
+    return 0
+  fi
+
+  if ! command -v wf-recorder >/dev/null 2>&1; then
+    notify "Screenrecord" "wf-recorder not installed"
+    return 1
+  fi
+
+  local output="$outdir/recording-$(date +%Y%m%d-%H%M%S).mp4"
+  local geometry=""
+  if command -v slurp >/dev/null 2>&1; then
+    geometry=$(slurp 2>/dev/null || true)
+  fi
+
+  if [[ -n $geometry ]]; then
+    wf-recorder -g "$geometry" -f "$output" >/dev/null 2>&1 &
+  else
+    wf-recorder -f "$output" >/dev/null 2>&1 &
+  fi
+
+  notify "Screenrecord" "Recording to $output"
+}
+
+menu_capture() {
+  local choice
+  choice=$(pick "Capture" "Screenshot region" "Screenshot full" "Screenrecord" "Color picker")
+
+  case "$choice" in
+    "Screenshot region") omarchy-cmd-screenshot region ;;
+    "Screenshot full") omarchy-cmd-screenshot ;;
+    "Screenrecord") toggle_screenrecord ;;
+    "Color picker")
+      if command -v hyprpicker >/dev/null 2>&1; then
+        pkill hyprpicker >/dev/null 2>&1 || true
+        hyprpicker -a >/dev/null 2>&1 &
+      fi
+      ;;
+  esac
+}
+
+menu_share() {
+  local choice
+  choice=$(pick "Share" "Clipboard" "File" "Folder")
+
+  case "$choice" in
+    "Clipboard") fallback_run omarchy-cmd-share clipboard || notify "Share" "Clipboard share unavailable" ;;
+    "File") fallback_run omarchy-cmd-share file || notify "Share" "File share unavailable" ;;
+    "Folder") fallback_run omarchy-cmd-share folder || notify "Share" "Folder share unavailable" ;;
+  esac
+}
+
+menu_system() {
+  local choice
+  choice=$(pick "System" "Lock" "Suspend" "Logout" "Restart" "Shutdown")
+
+  case "$choice" in
+    "Lock") omarchy-lock-screen ;;
+    "Suspend") systemctl suspend ;;
+    "Logout") hyprctl dispatch exit ;;
+    "Restart") systemctl reboot ;;
+    "Shutdown") systemctl poweroff ;;
+  esac
+}
+
+menu_install() {
+  local choice
+  choice=$(pick "Install" "Package" "Flatpak" "Web App" "TUI" "Terminal" "Steam" "Xbox Controller")
+
+  case "$choice" in
+    "Package") run_terminal omarchy-pkg-install ;;
+    "Flatpak")
+      run_terminal omarchy-flatpak-install
+      ;;
+    "Web App") fallback_run omarchy-webapp-install || notify "Install" "Web app installer unavailable" ;;
+    "TUI") fallback_run omarchy-tui-install || notify "Install" "TUI installer unavailable" ;;
+    "Terminal")
+      local term
+      term=$(pick "Terminal" "kitty" "ghostty" "alacritty")
+      [[ -n $term ]] && fallback_run omarchy-install-terminal "$term"
+      ;;
+    "Steam") fallback_run omarchy-install-steam || notify "Install" "Steam installer unavailable" ;;
+    "Xbox Controller") fallback_run omarchy-install-xbox-controllers || notify "Install" "Xbox installer unavailable" ;;
+  esac
+}
+
+menu_remove() {
+  local choice
+  choice=$(pick "Remove" "Package" "Web App" "TUI" "Preinstalls" "Theme" "Fingerprint" "Fido2")
+
+  case "$choice" in
+    "Package") run_terminal omarchy-pkg-remove ;;
+    "Web App") fallback_run omarchy-webapp-remove ;;
+    "TUI") fallback_run omarchy-tui-remove ;;
+    "Preinstalls") fallback_run omarchy-remove-preinstalls ;;
+    "Theme") fallback_run omarchy-theme-remove ;;
+    "Fingerprint") fallback_run omarchy-setup-fingerprint --remove ;;
+    "Fido2") fallback_run omarchy-setup-fido2 --remove ;;
+  esac
+}
+
+menu_update() {
+  local choice
+  choice=$(pick "Update" "Firmware" "Timezone" "Time" "Password")
+
+  case "$choice" in
+    "Firmware") fallback_run omarchy-update-firmware ;;
+    "Timezone") fallback_run omarchy-tz-select ;;
+    "Time") fallback_run omarchy-update-time ;;
+    "Password") run_terminal passwd ;;
+  esac
+}
+
+cmd_menu_keybindings() {
+  if ! command -v hyprctl >/dev/null 2>&1; then
+    fallback_run omarchy-menu-keybindings "$@"
+    return
+  fi
+
+  run_terminal bash -lc 'hyprctl binds | less -R'
+}
+
+cmd_battery_remaining() {
+  local cap
+  for cap in /sys/class/power_supply/BAT*/capacity; do
+    if [[ -f $cap ]]; then
+      cat "$cap"
+      return 0
+    fi
+  done
+
+  fallback_run omarchy-battery-remaining "$@"
+}
+
+cmd_brightness_display() {
+  local step="${1:-+5%}"
+
+  if ! command -v brightnessctl >/dev/null 2>&1; then
+    fallback_run omarchy-brightness-display "$@"
+    return
+  fi
+
+  local device
+  device=$(brightnessctl -l -c backlight 2>/dev/null | awk -F"'" '/Device/ {print $2; exit}')
+  if [[ -z $device ]]; then
+    fallback_run omarchy-brightness-display "$@"
+    return
+  fi
+
+  brightnessctl -d "$device" set "$step" >/dev/null
+
+  local percent progress monitor
+  percent=$(brightnessctl -d "$device" -m 2>/dev/null | cut -d',' -f4 | tr -d '%')
+  if [[ -n $percent ]] && command -v swayosd-client >/dev/null 2>&1; then
+    progress=$(awk -v p="$percent" 'BEGIN{printf "%.2f", p/100}')
+    [[ $progress == "0.00" ]] && progress="0.01"
+    monitor=$(hyprctl monitors -j 2>/dev/null | jq -r '.[]|select(.focused==true).name' 2>/dev/null || true)
+    if [[ -n $monitor ]]; then
+      swayosd-client --monitor "$monitor" --custom-icon display-brightness --custom-progress "$progress" --custom-progress-text "${percent}%" >/dev/null 2>&1 || true
+    else
+      swayosd-client --custom-icon display-brightness --custom-progress "$progress" --custom-progress-text "${percent}%" >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
+cmd_brightness_keyboard() {
+  if ! command -v brightnessctl >/dev/null 2>&1; then
+    fallback_run omarchy-brightness-keyboard "$@"
+    return
+  fi
+
+  local dev
+  dev=$(brightnessctl --list | sed -n "s/^Device '\([^']*\)'.*/\1/p" | grep -m1 -E 'kbd|keyboard' || true)
+  if [[ -z $dev ]]; then
+    fallback_run omarchy-brightness-keyboard "$@"
+    return
+  fi
+
+  case "${1:-}" in
+    up) brightnessctl -d "$dev" set +10% >/dev/null ;;
+    down) brightnessctl -d "$dev" set 10%- >/dev/null ;;
+    cycle)
+      local cur max
+      cur=$(brightnessctl -d "$dev" g)
+      max=$(brightnessctl -d "$dev" m)
+      if (( cur == 0 )); then
+        brightnessctl -d "$dev" set $((max / 2)) >/dev/null
+      else
+        brightnessctl -d "$dev" set 0 >/dev/null
+      fi
+      ;;
+    *) fallback_run omarchy-brightness-keyboard "$@" ;;
+  esac
+}
+
+cmd_brightness_display_apple() {
+  if command -v ddcutil >/dev/null 2>&1 && [[ -n ${1:-} ]]; then
+    local raw sign value step
+    raw="$1"
+    if [[ $raw =~ ^([+-]?)([0-9]+)$ ]]; then
+      sign="${BASH_REMATCH[1]}"
+      value="${BASH_REMATCH[2]}"
+      step=$((value / 1000))
+      if (( step < 1 )); then
+        step=1
+      fi
+      ddcutil setvcp 10 "${sign}${step}" >/dev/null 2>&1 && return 0
+    fi
+  fi
+
+  fallback_run omarchy-brightness-display-apple "$@"
+}
+
+cmd_audio_switch() {
+  if ! command -v pactl >/dev/null 2>&1; then
+    fallback_run omarchy-cmd-audio-switch "$@"
+    return
+  fi
+
+  mapfile -t sinks < <(pactl list short sinks | awk '{print $2}')
+  if (( ${#sinks[@]} == 0 )); then
+    fallback_run omarchy-cmd-audio-switch "$@"
+    return
+  fi
+
+  local current next idx
+  current=$(pactl info | awk -F': ' '/Default Sink/ {print $2; exit}')
+  idx=0
+  while (( idx < ${#sinks[@]} )); do
+    if [[ ${sinks[$idx]} == "$current" ]]; then
+      break
+    fi
+    ((idx += 1))
+  done
+
+  next="${sinks[$(((idx + 1) % ${#sinks[@]}))]}"
+  pactl set-default-sink "$next"
+  while read -r input; do
+    [[ -n $input ]] && pactl move-sink-input "$input" "$next"
+  done < <(pactl list short sink-inputs | awk '{print $1}')
+
+  notify "Audio output" "$next"
+}
+
+cmd_screenshot() {
+  local mode="${1:-full}"
+  local outdir="$HOME/Pictures/Screenshots"
+  local file="$outdir/screenshot-$(date +%Y%m%d-%H%M%S).png"
+  mkdir -p "$outdir"
+
+  if command -v grim >/dev/null 2>&1; then
+    if [[ $mode == "region" ]]; then
+      if ! command -v slurp >/dev/null 2>&1; then
+        fallback_run omarchy-cmd-screenshot "$@"
+        return
+      fi
+      local geometry
+      geometry=$(slurp 2>/dev/null || true)
+      [[ -z $geometry ]] && return 0
+      if command -v wl-copy >/dev/null 2>&1; then
+        grim -g "$geometry" - | tee "$file" | wl-copy
+      else
+        grim -g "$geometry" "$file"
+      fi
+    else
+      if command -v wl-copy >/dev/null 2>&1; then
+        grim - | tee "$file" | wl-copy
+      else
+        grim "$file"
+      fi
+    fi
+    notify "Screenshot" "$file"
+    return
+  fi
+
+  fallback_run omarchy-cmd-screenshot "$@"
+}
+
+cmd_launch_audio() {
+  command -v pavucontrol >/dev/null 2>&1 && exec pavucontrol
+  command -v pwvucontrol >/dev/null 2>&1 && exec pwvucontrol
+  if command -v alsamixer >/dev/null 2>&1; then
+    run_terminal alsamixer
+    return
+  fi
+
+  fallback_run omarchy-launch-audio "$@"
+}
+
+cmd_launch_bluetooth() {
+  command -v blueman-manager >/dev/null 2>&1 && exec blueman-manager
+  command -v blueberry >/dev/null 2>&1 && exec blueberry
+  if command -v bluetoothctl >/dev/null 2>&1; then
+    run_terminal bluetoothctl
+    return
+  fi
+
+  fallback_run omarchy-launch-bluetooth "$@"
+}
+
+cmd_launch_wifi() {
+  command -v nm-connection-editor >/dev/null 2>&1 && exec nm-connection-editor
+  if command -v nmtui >/dev/null 2>&1; then
+    run_terminal nmtui
+    return
+  fi
+
+  fallback_run omarchy-launch-wifi "$@"
+}
+
+cmd_launch_editor() {
+  local editor="${EDITOR:-nvim}"
+  if command -v "$editor" >/dev/null 2>&1; then
+    run_terminal "$editor" "$@"
+    return
+  fi
+
+  fallback_run omarchy-launch-editor "$@"
+}
+
+cmd_launch_tui() {
+  local app="${1:-btop}"
+  shift || true
+
+  if command -v "$app" >/dev/null 2>&1; then
+    run_terminal "$app" "$@"
+    return
+  fi
+
+  fallback_run omarchy-launch-tui "$app" "$@"
+}
+
+cmd_lock_screen() {
+  if command -v hyprlock >/dev/null 2>&1; then
+    exec hyprlock
+  fi
+
+  fallback_run omarchy-lock-screen "$@"
+}
+
+cmd_toggle_waybar() {
+  if pgrep -x waybar >/dev/null 2>&1; then
+    pkill -x waybar
+    return
+  fi
+
+  if command -v uwsm-app >/dev/null 2>&1; then
+    uwsm-app -- waybar >/dev/null 2>&1 &
+  elif command -v waybar >/dev/null 2>&1; then
+    waybar >/dev/null 2>&1 &
+  else
+    fallback_run omarchy-toggle-waybar "$@"
+  fi
+}
+
+cmd_toggle_idle() {
+  if pgrep -x hypridle >/dev/null 2>&1; then
+    pkill -x hypridle
+    notify "Idle lock" "Disabled"
+    return
+  fi
+
+  if command -v uwsm-app >/dev/null 2>&1; then
+    uwsm-app -- hypridle >/dev/null 2>&1 &
+    notify "Idle lock" "Enabled"
+    return
+  fi
+
+  command -v hypridle >/dev/null 2>&1 && hypridle >/dev/null 2>&1 &
+}
+
+cmd_toggle_nightlight() {
+  if pgrep -x hyprsunset >/dev/null 2>&1; then
+    pkill -x hyprsunset
+    notify "Nightlight" "Disabled"
+    return
+  fi
+
+  if command -v uwsm-app >/dev/null 2>&1; then
+    uwsm-app -- hyprsunset >/dev/null 2>&1 &
+    notify "Nightlight" "Enabled"
+    return
+  fi
+
+  command -v hyprsunset >/dev/null 2>&1 && hyprsunset >/dev/null 2>&1 &
+}
+
+cmd_toggle_notifications() {
+  if ! command -v makoctl >/dev/null 2>&1; then
+    fallback_run omarchy-toggle-notification-silencing "$@"
+    return
+  fi
+
+  if makoctl mode 2>/dev/null | grep -q "do-not-disturb"; then
+    makoctl mode -r do-not-disturb
+    notify "Notifications" "Enabled"
+  else
+    makoctl mode -a do-not-disturb
+    notify "Notifications" "Silenced"
+  fi
+}
+
+cmd_window_close_all() {
+  if ! command -v hyprctl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    fallback_run omarchy-hyprland-window-close-all "$@"
+    return
+  fi
+
+  while read -r addr; do
+    [[ -n $addr ]] && hyprctl dispatch closewindow "address:$addr" >/dev/null
+  done < <(hyprctl clients -j | jq -r '.[].address')
+}
+
+cmd_window_pop() {
+  if ! command -v hyprctl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    fallback_run omarchy-hyprland-window-pop "$@"
+    return
+  fi
+
+  local addr floating pinned
+  addr=$(active_window_address)
+  [[ -z $addr ]] && return 0
+
+  floating=$(hyprctl activewindow -j | jq -r '.floating // false')
+  pinned=$(hyprctl activewindow -j | jq -r '.pinned // false')
+
+  if [[ $pinned == "true" ]]; then
+    hyprctl dispatch pin >/dev/null
+  fi
+
+  if [[ $floating == "true" ]]; then
+    hyprctl dispatch togglefloating >/dev/null
+    return
+  fi
+
+  hyprctl dispatch togglefloating >/dev/null
+  hyprctl dispatch pin >/dev/null
+  hyprctl dispatch centerwindow >/dev/null
+}
+
+cmd_workspace_gaps_toggle() {
+  if ! command -v hyprctl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    fallback_run omarchy-hyprland-workspace-toggle-gaps "$@"
+    return
+  fi
+
+  local current
+  current=$(hyprctl getoption general:gaps_out -j | jq -r '.int // 0')
+  if (( current > 0 )); then
+    hyprctl keyword general:gaps_in 0 >/dev/null
+    hyprctl keyword general:gaps_out 0 >/dev/null
+  else
+    hyprctl keyword general:gaps_in 5 >/dev/null
+    hyprctl keyword general:gaps_out 10 >/dev/null
+  fi
+}
+
+cmd_monitor_scaling_toggle() {
+  if ! command -v hyprctl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    fallback_run omarchy-hyprland-monitor-scaling-toggle "$@"
+    return
+  fi
+
+  local monitor current target
+  monitor=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name // empty')
+  current=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .scale // 1')
+  [[ -z $monitor ]] && return 0
+
+  if awk "BEGIN {exit !($current > 1.05)}"; then
+    target="1"
+  else
+    target="1.25"
+  fi
+
+  hyprctl keyword monitor "$monitor,preferred,auto,$target" >/dev/null
+}
+
+cmd_single_square_toggle() {
+  if ! command -v hyprctl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    fallback_run omarchy-hyprland-window-single-square-aspect-toggle "$@"
+    return
+  fi
+
+  local addr floating pinned monw monh size state_file
+  addr=$(active_window_address)
+  [[ -z $addr ]] && return 0
+  state_file="$STATE_DIR/square-window.addr"
+
+  floating=$(hyprctl activewindow -j | jq -r '.floating // false')
+  pinned=$(hyprctl activewindow -j | jq -r '.pinned // false')
+
+  if [[ -f $state_file ]] && [[ $(cat "$state_file") == "$addr" ]]; then
+    if [[ $pinned == "true" ]]; then
+      hyprctl dispatch pin >/dev/null
+    fi
+    if [[ $floating == "true" ]]; then
+      hyprctl dispatch togglefloating >/dev/null
+    fi
+    : > "$state_file"
+    return
+  fi
+
+  if [[ $floating != "true" ]]; then
+    hyprctl dispatch togglefloating >/dev/null
+  fi
+  if [[ $pinned != "true" ]]; then
+    hyprctl dispatch pin >/dev/null
+  fi
+
+  monw=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .width // 0')
+  monh=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .height // 0')
+  size=$(( monw < monh ? monw : monh ))
+  size=$(( size * 70 / 100 ))
+  if (( size < 300 )); then
+    size=300
+  fi
+
+  hyprctl dispatch resizeactive exact "$size" "$size" >/dev/null
+  hyprctl dispatch centerwindow >/dev/null
+  printf '%s' "$addr" > "$state_file"
+}
+
+cmd_name="$(basename "$0")"
+if [[ $cmd_name == "omarchy-native" ]]; then
+  cmd_name="${1:-}"
+  shift || true
+fi
+
+case "$cmd_name" in
+  omarchy-menu)
+    case "${1:-main}" in
+      main|"") menu_main ;;
+      capture) menu_capture ;;
+      share) menu_share ;;
+      system) menu_system ;;
+      theme) omarchy-launch-walker -m menus:omarchythemes ;;
+      background) omarchy-launch-walker -m menus:omarchyBackgroundSelector ;;
+      screenrecord) toggle_screenrecord ;;
+      *) fallback_run omarchy-menu "$@" ;;
+    esac
+    ;;
+  omarchy-menu-keybindings) cmd_menu_keybindings "$@" ;;
+  omarchy-battery-remaining) cmd_battery_remaining "$@" ;;
+  omarchy-brightness-display) cmd_brightness_display "$@" ;;
+  omarchy-brightness-keyboard) cmd_brightness_keyboard "$@" ;;
+  omarchy-brightness-display-apple) cmd_brightness_display_apple "$@" ;;
+  omarchy-cmd-audio-switch) cmd_audio_switch "$@" ;;
+  omarchy-cmd-screenshot) cmd_screenshot "$@" ;;
+  omarchy-launch-audio) cmd_launch_audio "$@" ;;
+  omarchy-launch-bluetooth) cmd_launch_bluetooth "$@" ;;
+  omarchy-launch-editor) cmd_launch_editor "$@" ;;
+  omarchy-launch-tui) cmd_launch_tui "$@" ;;
+  omarchy-launch-wifi) cmd_launch_wifi "$@" ;;
+  omarchy-lock-screen) cmd_lock_screen "$@" ;;
+  omarchy-toggle-waybar) cmd_toggle_waybar "$@" ;;
+  omarchy-toggle-idle) cmd_toggle_idle "$@" ;;
+  omarchy-toggle-nightlight) cmd_toggle_nightlight "$@" ;;
+  omarchy-toggle-notification-silencing) cmd_toggle_notifications "$@" ;;
+  omarchy-hyprland-window-close-all) cmd_window_close_all "$@" ;;
+  omarchy-hyprland-window-pop) cmd_window_pop "$@" ;;
+  omarchy-hyprland-workspace-toggle-gaps) cmd_workspace_gaps_toggle "$@" ;;
+  omarchy-hyprland-monitor-scaling-toggle) cmd_monitor_scaling_toggle "$@" ;;
+  omarchy-hyprland-window-single-square-aspect-toggle) cmd_single_square_toggle "$@" ;;
+  *)
+    echo "Unsupported command: $cmd_name" >&2
+    exit 64
+    ;;
+esac

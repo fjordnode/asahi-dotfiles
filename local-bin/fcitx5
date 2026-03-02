@@ -1,0 +1,4 @@
+#!/bin/bash
+# Wrapper: runs the real binary if installed, exits silently if not
+[[ -x /usr/bin/fcitx5 ]] && exec /usr/bin/fcitx5 "$@"
+exit 0

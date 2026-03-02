@@ -1,0 +1,19 @@
+#!/bin/bash
+
+config="$HOME/.config/walker/config.toml"
+baseline="$HOME/.config/walker/config.toml.baseline"
+
+if [[ ! -f $config ]]; then
+  exit 0
+fi
+
+if [[ ! -f $baseline ]]; then
+  cp "$config" "$baseline"
+fi
+
+if grep -q '^desktopapplications = \[' "$config" && grep -q 'action = "start"' "$config"; then
+  exit 0
+fi
+
+cp "$baseline" "$config"
+omarchy-restart-walker >/dev/null 2>&1 || true

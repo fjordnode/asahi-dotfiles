@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Remove preinstalled Omarchy applications.
+# Fedora port: uses dnf package names where available, skips AUR-only packages.
+
+source "$HOME/.local/share/omarchy-fedora/pkg-helpers.sh"
+
+echo "Removing preinstalled applications..."
+
+# Remove web apps and TUI wrappers (these are just .desktop files, work on any distro)
+omarchy-webapp-remove 2>/dev/null || true
+omarchy-tui-remove 2>/dev/null || true
+
+# Try to remove packages that exist on Fedora
+for pkg in libreoffice signal-desktop obs-studio kdenlive; do
+  if is_pkg_installed "$pkg"; then
+    sudo dnf remove -y "$pkg" 2>/dev/null || true
+  fi
+done
+
+# Remove flatpaks that might have been installed
+for fpak in com.1password.1Password io.typora.Typora com.spotify.Client; do
+  flatpak uninstall -y "$fpak" 2>/dev/null || true
+done
+
+echo "Done removing preinstalls."

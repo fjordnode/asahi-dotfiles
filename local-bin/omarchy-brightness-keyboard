@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Adjust keyboard backlight brightness (~10% per step).
+# Usage: omarchy-brightness-keyboard <up|down|cycle>
+
+direction="${1:-up}"
+device="kbd_backlight"
+
+if ! brightnessctl -d "$device" info &>/dev/null; then
+  echo "No keyboard backlight device found" >&2
+  exit 1
+fi
+
+max=$(brightnessctl -d "$device" max)
+current=$(brightnessctl -d "$device" get)
+step=$(( max / 10 ))
+(( step < 1 )) && step=1
+
+case "$direction" in
+  up)
+    new=$(( current + step ))
+    (( new > max )) && new=$max
+    ;;
+  down)
+    new=$(( current - step ))
+    (( new < 0 )) && new=0
+    ;;
+  cycle)
+    new=$(( current + step ))
+    (( new > max )) && new=0
+    ;;
+esac
+
+brightnessctl -d "$device" set "$new" >/dev/null
+
+percent=$(( new * 100 / max ))
+omarchy-swayosd-kbd-brightness "$percent" 2>/dev/null

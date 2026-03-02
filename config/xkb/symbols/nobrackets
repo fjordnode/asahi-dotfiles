@@ -1,0 +1,11 @@
+// Norwegian layout with brackets on ø/æ keys
+// ø → (    Shift+ø → [    AltGr+ø → ø    AltGr+Shift+ø → Ø
+// æ → )    Shift+æ → ]    AltGr+æ → æ    AltGr+Shift+æ → Æ
+
+default partial alphanumeric_keys
+xkb_symbols "basic" {
+    include "no(basic)"
+
+    key <AC10> { type = "FOUR_LEVEL", [ parenleft,  bracketleft,  oslash, Oslash ] };
+    key <AC11> { type = "FOUR_LEVEL", [ parenright, bracketright, ae,     AE     ] };
+};

@@ -1,0 +1,96 @@
+# Arch → Fedora package name mapping
+# Format: arch_name=fedora_name
+# Use SKIP to indicate no Fedora equivalent (will show a message)
+# Use FLATPAK:id to install via flatpak instead
+# Unmapped names pass through as-is (many are the same)
+
+# Editors
+visual-studio-code-bin=code
+cursor-bin=SKIP
+
+# Kernel/system
+linux-headers=kernel-devel
+
+# Audio/media
+pipewire=pipewire
+wireplumber=wireplumber
+
+# Auth
+fprintd=fprintd
+libfido2=libfido2
+pam-u2f=pam-u2f
+
+# Gaming
+steam=steam
+xpadneo-dkms=SKIP
+
+# VPN / services
+nordvpn-bin=SKIP
+dropbox=SKIP
+dropbox-cli=SKIP
+libappindicator-gtk3=libappindicator-gtk3
+python-gpgme=python3-gpgme
+nautilus-dropbox=SKIP
+
+# PHP
+php-sqlite=php-pdo
+xdebug=php-pecl-xdebug3
+symfony-cli=SKIP
+
+# Browsers
+chromium=chromium
+
+# Fonts (Arch nerd font packages → Fedora equivalents)
+ttf-cascadia-mono-nerd=cascadia-mono-nerd-fonts
+ttf-meslo-nerd=meslo-nerd-fonts
+ttf-firacode-nerd=firacode-nerd-fonts
+ttf-victor-mono-nerd=victor-mono-nerd-fonts
+ttf-bitstream-vera-mono-nerd=bitstream-vera-nerd-fonts
+ttf-iosevka-nerd=iosevka-nerd-fonts
+
+# Utilities
+wtype=wtype
+voxtype-bin=SKIP
+gum=gum
+fzf=fzf
+rlwrap=rlwrap
+inxi=inxi
+fwupd=fwupd
+libyaml=libyaml-devel
+usbutils=usbutils
+
+# Wayland/Hyprland
+hyprland=hyprland
+hyprlock=hyprlock
+hypridle=hypridle
+waybar=waybar
+rofi=rofi-wayland
+
+# Misc
+supergfxctl=SKIP
+freerdp=freerdp
+openbsd-netcat=nmap-ncat
+
+# Development
+base-devel=make gcc gcc-c++ kernel-devel
+
+# AI tools (installed via npm/pip, not system packages)
+claude-code=SKIP
+github-copilot-cli=SKIP
+cursor-cli=SKIP
+gemini-cli=SKIP
+openai-codex=SKIP
+lmstudio=SKIP
+crush-bin=SKIP
+
+# Omarchy-specific (don't exist on Fedora)
+omarchy-keyring=SKIP
+archlinux-keyring=SKIP
+
+# Bitwarden
+bitwarden=FLATPAK:com.bitwarden.desktop
+bitwarden-cli=SKIP
+
+# Gaming extras
+retroarch=FLATPAK:org.libretro.RetroArch
+minecraft-launcher=FLATPAK:com.mojang.Minecraft

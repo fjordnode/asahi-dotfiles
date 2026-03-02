@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# Generate fuzzel config from current Omarchy theme colors
+
+COLORS="$HOME/.config/omarchy/current/theme/colors.toml"
+OUT="$HOME/.config/fuzzel/fuzzel.ini"
+
+# Read color value, strip quotes and #
+c() {
+  grep "^$1 " "$COLORS" 2>/dev/null | sed 's/.*"\#\?\([^"]*\)".*/\1/'
+}
+
+bg=$(c background)
+fg=$(c foreground)
+accent=$(c accent)
+sel_bg=$(c color0)
+
+cat > "$OUT" <<EOF
+[main]
+font=JetBrainsMono Nerd Font:size=14
+prompt="  "
+width=45
+lines=12
+tabs=4
+horizontal-pad=20
+vertical-pad=12
+inner-pad=8
+layer=overlay
+exit-on-keyboard-focus-loss=yes
+
+[colors]
+background=${bg}ee
+text=${fg}ff
+match=${accent}ff
+selection=${sel_bg}ff
+selection-text=${accent}ff
+selection-match=${accent}ff
+border=${accent}ff
+prompt=${accent}ff
+
+[border]
+width=2
+radius=8
+EOF

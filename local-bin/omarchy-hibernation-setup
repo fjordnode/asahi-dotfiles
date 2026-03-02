@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Setup hibernation.
+# On Asahi Linux (Apple Silicon), this is NOT possible.
+
+if grep -qi "apple" /proc/cpuinfo 2>/dev/null; then
+  echo -e "\033[31mHibernation is not available on Apple Silicon.\033[0m"
+  echo ""
+  echo "The Asahi Linux firmware cannot save/restore hardware state across"
+  echo "a full power-off, which is required for hibernation."
+  echo ""
+  echo "Suspend (s2idle) works but drains ~1.4%/hr — this is a known limitation."
+  exit 1
+fi
+
+echo -e "\033[33mHibernation setup for Fedora (non-Asahi) is not yet implemented in this port.\033[0m"
+echo "See: https://wiki.archlinux.org/title/Power_management/Suspend_and_hibernate"
+echo "Fedora equivalent: configure a swap partition/file, add resume= to kernel cmdline,"
+echo "and rebuild initramfs with: sudo dracut -f"
+exit 1

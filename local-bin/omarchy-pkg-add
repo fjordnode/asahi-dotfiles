@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Add the named packages to the system if they're missing. Returns false if it couldn't be done.
+# Fedora port: uses dnf instead of pacman, with Arch→Fedora package name mapping.
+
+source "$HOME/.local/share/omarchy-fedora/pkg-helpers.sh"
+
+translate_pkgs "$@"
+
+# Warn about skipped packages
+for pkg in "${SKIPPED_PKGS[@]}"; do
+  echo -e "\033[33mWarning: '$pkg' has no Fedora equivalent (skipped)\033[0m" >&2
+done
+
+# Install dnf packages
+if [[ ${#DNF_PKGS[@]} -gt 0 ]]; then
+  # Filter out already-installed packages
+  missing=()
+  for pkg in "${DNF_PKGS[@]}"; do
+    if ! is_pkg_installed "$pkg"; then
+      missing+=("$pkg")
+    fi
+  done
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    sudo dnf install -y "${missing[@]}" || exit 1
+  fi
+fi
+
+# Install flatpak packages
+for fpak in "${FLATPAK_PKGS[@]}"; do
+  if ! flatpak info "$fpak" &>/dev/null; then
+    flatpak install -y flathub "$fpak" || exit 1
+  fi
+done
+
+# Verify dnf packages installed
+for pkg in "${DNF_PKGS[@]}"; do
+  if ! is_pkg_installed "$pkg"; then
+    echo -e "\033[31mError: Package '$pkg' did not install\033[0m" >&2
+    exit 1
+  fi
+done
+
+exit 0

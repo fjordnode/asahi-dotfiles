@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Toggle dedicated vs integrated GPU mode.
+# Fedora port: supergfxctl is not available. Use switcheroo-control or envycontrol.
+
+echo -e "\033[33mHybrid GPU switching is not directly supported on Fedora Asahi.\033[0m"
+echo ""
+echo "On Fedora, GPU switching options depend on your hardware:"
+echo "  - For NVIDIA: install envycontrol (pip install envycontrol)"
+echo "  - For AMD:    GPU switching is handled automatically by the kernel"
+echo "  - For Asahi:  Only the integrated GPU is available (Apple Silicon)"
+echo ""
+echo "Check your current GPU:"
+lspci | grep -i vga 2>/dev/null || echo "  (lspci not available)"

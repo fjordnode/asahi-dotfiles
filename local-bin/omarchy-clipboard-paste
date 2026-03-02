@@ -1,0 +1,42 @@
+#!/bin/bash
+
+current_window_class() {
+  local active_class
+
+  if command -v jq >/dev/null 2>&1; then
+    active_class=$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // ""')
+  else
+    active_class=$(hyprctl activewindow 2>/dev/null | awk -F': ' '/^class: / { print $2; exit }')
+  fi
+
+  printf "%s" "${active_class,,}"
+}
+
+paste_selected() {
+  local target_class=$1
+
+  case "$target_class" in
+    *brave*)
+      wtype -M ctrl -k v -m ctrl
+      ;;
+    *ghostty*|*kitty*|*alacritty*|*wezterm*|*foot*)
+      wtype -M ctrl -M shift -k v -m shift -m ctrl
+      ;;
+    *)
+      wtype -M shift -k Insert -m shift
+      ;;
+  esac
+}
+
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/omarchy-clipboard-paste.lock"
+flock -n 9 || exit 0
+
+target_class=$(current_window_class)
+
+omarchy-launch-walker -m clipboard
+status=$?
+
+if (( status == 0 )); then
+  sleep 0.12
+  paste_selected "$target_class"
+fi

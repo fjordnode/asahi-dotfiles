@@ -1,0 +1,5 @@
+# Auto switch CPU governor based on AC/battery
+# On AC: performance governor, full frequency range
+SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ATTR{online}=="1", RUN+="/bin/sh -c 'echo performance | tee /sys/devices/system/cpu/cpufreq/policy*/scaling_governor && for p in /sys/devices/system/cpu/cpufreq/policy*/; do cat ${p}cpuinfo_max_freq > ${p}scaling_max_freq; done'"
+# On battery: schedutil governor, full frequency range (scales dynamically)
+SUBSYSTEM=="power_supply", ATTR{type}=="Mains", ATTR{online}=="0", RUN+="/bin/sh -c 'echo schedutil | tee /sys/devices/system/cpu/cpufreq/policy*/scaling_governor && for p in /sys/devices/system/cpu/cpufreq/policy*/; do cat ${p}cpuinfo_max_freq > ${p}scaling_max_freq; done'"

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Check if hibernation is available.
+# On Asahi Linux (Apple Silicon), hibernation is NOT possible
+# because the firmware state cannot be saved.
+
+# Quick check: if on Apple Silicon, hibernation is never available
+if grep -qi "apple" /proc/cpuinfo 2>/dev/null || [[ "$(uname -m)" == "aarch64" && -d /sys/firmware/devicetree/base/chosen/asahi,* ]] 2>/dev/null; then
+  exit 1
+fi
+
+# For non-Asahi Fedora: check standard requirements
+[[ -f /sys/power/image_size ]] || exit 1
+
+# Check for adequate swap
+total_swap=$(free -b | awk '/^Swap:/ {print $2}')
+image_size=$(cat /sys/power/image_size 2>/dev/null || echo 0)
+[[ $total_swap -gt $image_size ]] || exit 1
+
+# Check if resume is configured in dracut or kernel cmdline
+grep -q "resume=" /proc/cmdline 2>/dev/null || exit 1
+
+exit 0

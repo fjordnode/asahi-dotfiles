@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+export PATH="$HOME/.local/bin:$OMARCHY_PATH/bin:$PATH"
+exec "$OMARCHY_PATH/bin/omarchy-font-set" "$@"

@@ -1,0 +1,40 @@
+#!/bin/bash
+THEME="$1"
+
+# Map Omarchy theme to opencode built-in theme (fall back to system)
+declare -A oc_map=(
+  [catppuccin]=catppuccin
+  [catppuccin-latte]=catppuccin
+  [everforest]=everforest
+  [gruvbox]=gruvbox
+  [kanagawa]=kanagawa
+  [nord]=nord
+  [tokyo-night]=tokyonight
+  [hackerman]=matrix
+  [matte-black]=opencode
+)
+oc_theme="${oc_map[$THEME]:-system}"
+
+# Update opencode TUI config
+OC_TUI="$HOME/.config/opencode/tui.json"
+if [[ -f "$OC_TUI" ]]; then
+  sed -i 's/"theme": *"[^"]*"/"theme": "'"$oc_theme"'"/' "$OC_TUI"
+else
+  printf '{\n  "$schema": "https://opencode.ai/tui.json",\n  "theme": "%s"\n}\n' "$oc_theme" > "$OC_TUI"
+fi
+
+# Update opencode runtime state (takes precedence)
+OC_KV="$HOME/.local/state/opencode/kv.json"
+mkdir -p "$(dirname "$OC_KV")"
+if [[ -f "$OC_KV" ]]; then
+  sed -i 's/"theme": *"[^"]*"/"theme": "'"$oc_theme"'"/' "$OC_KV"
+else
+  printf '{\n  "theme": "%s"\n}\n' "$oc_theme" > "$OC_KV"
+fi
+
+# Neovim: live reload handled by nvim's own fs_event watcher (autocmds.lua)
+
+# Signal all interactive zsh shells to re-render their prompts via FIFOs
+for fifo in /tmp/zsh-reload-*; do
+  [[ -p "$fifo" ]] && echo "reload" > "$fifo" 2>/dev/null &
+done

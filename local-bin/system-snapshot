@@ -1,0 +1,164 @@
+#!/bin/bash
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  system-snapshot setup
+  system-snapshot policy
+  system-snapshot create [description]
+  system-snapshot list
+  system-snapshot rollback <root-snapshot-id>
+
+Examples:
+  system-snapshot setup
+  system-snapshot policy
+  system-snapshot create "before dnf upgrade"
+  system-snapshot list
+  system-snapshot rollback 42
+EOF
+}
+
+require_btrfs() {
+  local root_fs
+  root_fs="$(findmnt -no FSTYPE /)"
+  if [[ $root_fs != "btrfs" ]]; then
+    echo "Root filesystem is '$root_fs' (not btrfs). Snapper rollback requires btrfs." >&2
+    exit 1
+  fi
+}
+
+setup_snapper() {
+  require_btrfs
+
+  sudo dnf install -y snapper
+
+  if [[ ! -f /etc/snapper/configs/root ]]; then
+    sudo snapper -c root create-config /
+  fi
+
+  if [[ ! -f /etc/snapper/configs/home ]]; then
+    sudo snapper -c home create-config /home
+  fi
+
+  configure_policy
+
+  echo "Snapper is configured for / and /home."
+  echo "Use 'system-snapshot create \"before changes\"' before big updates."
+}
+
+set_snapper_key() {
+  local config_file key value
+  config_file="$1"
+  key="$2"
+  value="$3"
+
+  if sudo grep -q "^${key}=" "$config_file"; then
+    sudo sed -i "s|^${key}=.*|${key}=\"${value}\"|" "$config_file"
+  else
+    printf '%s="%s"\n' "$key" "$value" | sudo tee -a "$config_file" >/dev/null
+  fi
+}
+
+apply_timeline_policy() {
+  local config_file
+  config_file="$1"
+
+  set_snapper_key "$config_file" TIMELINE_CREATE yes
+  set_snapper_key "$config_file" TIMELINE_CLEANUP yes
+  set_snapper_key "$config_file" TIMELINE_LIMIT_HOURLY 0
+  set_snapper_key "$config_file" TIMELINE_LIMIT_DAILY 7
+  set_snapper_key "$config_file" TIMELINE_LIMIT_WEEKLY 4
+  set_snapper_key "$config_file" TIMELINE_LIMIT_MONTHLY 1
+  set_snapper_key "$config_file" TIMELINE_LIMIT_YEARLY 0
+}
+
+configure_policy() {
+  local root_cfg home_cfg
+  root_cfg="/etc/snapper/configs/root"
+  home_cfg="/etc/snapper/configs/home"
+
+  if [[ ! -f $root_cfg ]]; then
+    echo "Snapper root config not found. Run: system-snapshot setup" >&2
+    exit 1
+  fi
+
+  apply_timeline_policy "$root_cfg"
+
+  if [[ -f $home_cfg ]]; then
+    apply_timeline_policy "$home_cfg"
+  fi
+
+  sudo systemctl enable --now snapper-timeline.timer snapper-cleanup.timer
+
+  echo "Automatic snapshot policy set: daily=7, weekly=4, monthly=1 (hourly/yearly disabled)."
+}
+
+create_snapshot() {
+  local description
+  description="${*:-manual snapshot}"
+
+  sudo snapper -c root create -d "$description"
+
+  if [[ -f /etc/snapper/configs/home ]]; then
+    sudo snapper -c home create -d "$description"
+  fi
+
+  echo "Snapshot created: $description"
+}
+
+list_snapshots() {
+  echo "=== root snapshots ==="
+  sudo snapper -c root list
+
+  if [[ -f /etc/snapper/configs/home ]]; then
+    echo
+    echo "=== home snapshots ==="
+    sudo snapper -c home list
+  fi
+}
+
+rollback_root() {
+  local snapshot_id
+  snapshot_id="$1"
+
+  if [[ -z $snapshot_id ]]; then
+    echo "Missing snapshot id." >&2
+    usage
+    exit 1
+  fi
+
+  sudo snapper --ambit classic -c root rollback "$snapshot_id"
+  echo "Rollback prepared to snapshot $snapshot_id. Reboot to apply."
+}
+
+main() {
+  local command
+  command="${1:-}"
+  shift || true
+
+  case "$command" in
+    setup)
+      setup_snapper
+      ;;
+    policy)
+      configure_policy
+      ;;
+    create)
+      create_snapshot "$@"
+      ;;
+    list)
+      list_snapshots
+      ;;
+    rollback)
+      rollback_root "${1:-}"
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"

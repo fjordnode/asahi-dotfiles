@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Install and launch Steam.
+# Fedora port: uses dnf (needs RPM Fusion).
+
+set -e
+
+# Ensure RPM Fusion is enabled (Steam requires it on Fedora)
+if ! dnf repolist 2>/dev/null | grep -q rpmfusion-nonfree; then
+  echo "Enabling RPM Fusion (required for Steam)..."
+  sudo dnf install -y \
+    "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
+    "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+fi
+
+echo "Installing Steam..."
+sudo dnf install -y steam
+setsid gtk-launch steam >/dev/null 2>&1 &

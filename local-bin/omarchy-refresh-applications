@@ -1,0 +1,98 @@
+#!/bin/bash
+
+APP_DIR="$HOME/.local/share/applications"
+DEFAULT_APP_DIR="$HOME/.local/share/omarchy/applications"
+
+hide_entry() {
+  local desktop_file="$1"
+
+  sed -i '/^NoDisplay=true$/d' "$desktop_file"
+  sed -i '/^Hidden=true$/d' "$desktop_file"
+  sed -i '/^\[Desktop Entry\]$/a NoDisplay=true' "$desktop_file"
+  sed -i '/^\[Desktop Entry\]$/a Hidden=true' "$desktop_file"
+}
+
+show_entry() {
+  local desktop_file="$1"
+
+  sed -i '/^NoDisplay=true$/d' "$desktop_file"
+  sed -i '/^Hidden=true$/d' "$desktop_file"
+}
+
+extract_exec_command() {
+  local exec_value="$1"
+  local command_part script_part
+
+  if [[ $exec_value == *" -e "* ]]; then
+    command_part=${exec_value#* -e }
+  else
+    command_part=$exec_value
+  fi
+
+  if [[ $command_part == "bash -c "* ]]; then
+    script_part=${command_part#bash -c }
+    script_part=${script_part#\'}
+    script_part=${script_part%\'}
+    script_part=${script_part#\"}
+    script_part=${script_part%\"}
+    printf '%s\n' "${script_part%% *}"
+    return
+  fi
+
+  printf '%s\n' "${command_part%% *}"
+}
+
+sync_default_entry_visibility() {
+  local default_file local_file exec_line exec_cmd
+
+  for default_file in "$DEFAULT_APP_DIR"/*.desktop; do
+    [[ -f $default_file ]] || continue
+
+    local_file="$APP_DIR/$(basename "$default_file")"
+    [[ -f $local_file ]] || continue
+
+    exec_line=$(grep -m1 '^Exec=' "$local_file" 2>/dev/null)
+    [[ -n $exec_line ]] || continue
+
+    exec_cmd=${exec_line#Exec=}
+    exec_cmd=${exec_cmd%% *}
+    [[ -n $exec_cmd ]] || continue
+
+    if command -v "$exec_cmd" &>/dev/null; then
+      show_entry "$local_file"
+    else
+      hide_entry "$local_file"
+    fi
+  done
+}
+
+sync_tui_entry_visibility() {
+  local desktop_file exec_line exec_value exec_cmd
+
+  for desktop_file in "$APP_DIR"/*.desktop; do
+    [[ -f $desktop_file ]] || continue
+
+    exec_line=$(grep -m1 '^Exec=' "$desktop_file" 2>/dev/null)
+    [[ -n $exec_line ]] || continue
+
+    exec_value=${exec_line#Exec=}
+    [[ $exec_value == *"xdg-terminal-exec"* ]] || continue
+    [[ $exec_value == *" -e "* ]] || continue
+
+    exec_cmd=$(extract_exec_command "$exec_value")
+    [[ -n $exec_cmd ]] || continue
+
+    if command -v "$exec_cmd" &>/dev/null; then
+      show_entry "$desktop_file"
+    else
+      hide_entry "$desktop_file"
+    fi
+  done
+}
+
+sync_default_entry_visibility
+sync_tui_entry_visibility
+
+if command -v update-desktop-database &>/dev/null; then
+  update-desktop-database "$APP_DIR" &>/dev/null || true
+fi

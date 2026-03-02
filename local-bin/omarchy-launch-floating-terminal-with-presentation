@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Launch a floating terminal with the Omarchy logo presentation, then execute the command passed in.
+# Fedora port: always waits for keypress before closing, even on failure.
+
+cmd="$*"
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.terminal --title=Omarchy -e bash -c "
+omarchy-show-logo
+$cmd
+rc=\$?
+echo
+if (( rc == 0 )); then
+  omarchy-show-done 2>/dev/null || { echo 'Done! Press Enter to close...'; read; }
+elif (( rc != 130 )); then
+  echo -e '\033[31mExited with error (code \$rc).\033[0m'
+  echo 'Press Enter to close...'
+  read
+fi
+"

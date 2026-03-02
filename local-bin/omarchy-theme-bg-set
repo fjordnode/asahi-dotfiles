@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Sets the specified image as the current background
+# Override: uses swww instead of swaybg
+
+if [[ -z $1 ]]; then
+  echo "Usage: omarchy-theme-bg-set <path-to-image>" >&2
+  exit 1
+fi
+
+BACKGROUND="$1"
+CURRENT_BACKGROUND_LINK="$HOME/.config/omarchy/current/background"
+
+# Create symlink to the new background
+ln -nsf "$BACKGROUND" "$CURRENT_BACKGROUND_LINK"
+
+# Display with swww
+swww img "$CURRENT_BACKGROUND_LINK" --transition-type fade --transition-duration 1

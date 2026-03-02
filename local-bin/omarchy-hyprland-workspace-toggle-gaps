@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Toggles window gaps and borders on the active workspace.
+# WS1 always stays at zero gaps/border (fullscreen browser).
+
+workspace_id=$(hyprctl activeworkspace -j | jq -r .id)
+
+if [[ $workspace_id == "1" ]]; then
+  notify-send "Gaps disabled on workspace 1" -t 1500
+  exit 0
+fi
+
+gaps=$(hyprctl workspacerules -j | jq -r ".[] | select(.workspaceString==\"$workspace_id\") | .gapsOut[0] // 0")
+
+if [[ $gaps == "0" ]]; then
+  hyprctl keyword "workspace $workspace_id, gapsout:10, gapsin:5, bordersize:2"
+else
+  hyprctl keyword "workspace $workspace_id, gapsout:0, gapsin:0, bordersize:0"
+fi

@@ -1,0 +1,71 @@
+#!/bin/bash
+
+profiles_dir="$HOME/.config/hypr/hypridle-profiles"
+active_config="$HOME/.config/hypr/hypridle.conf"
+mode_file="${XDG_RUNTIME_DIR:-/tmp}/omarchy-hypridle-power.mode"
+
+detect_mode() {
+  local supply type online
+
+  for supply in /sys/class/power_supply/*; do
+    [[ -d $supply ]] || continue
+    [[ -r $supply/type ]] || continue
+
+    type=$(<"$supply/type")
+    [[ $type == "Mains" ]] || continue
+    [[ -r $supply/online ]] || continue
+
+    online=$(<"$supply/online")
+    if [[ $online == "1" ]]; then
+      printf "%s" "ac"
+      return
+    fi
+  done
+
+  printf "%s" "battery"
+}
+
+restart_idle() {
+  if command -v omarchy-restart-hypridle >/dev/null 2>&1; then
+    omarchy-restart-hypridle >/dev/null 2>&1
+    return
+  fi
+
+  if pgrep -x hypridle >/dev/null 2>&1; then
+    pkill -x hypridle
+  fi
+
+  uwsm-app -- hypridle >/dev/null 2>&1 &
+}
+
+mode=$(detect_mode)
+profile="$profiles_dir/$mode.conf"
+
+if [[ ! -f $profile ]]; then
+  exit 0
+fi
+
+changed=0
+if [[ ! -f $active_config ]] || ! cmp -s "$profile" "$active_config"; then
+  cp "$profile" "$active_config"
+  changed=1
+fi
+
+previous_mode=""
+if [[ -f $mode_file ]]; then
+  previous_mode=$(<"$mode_file")
+fi
+
+if [[ $previous_mode != "$mode" ]]; then
+  changed=1
+fi
+
+printf "%s" "$mode" > "$mode_file"
+
+if ! pgrep -x hypridle >/dev/null 2>&1; then
+  changed=1
+fi
+
+if (( changed )); then
+  restart_idle
+fi

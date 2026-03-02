@@ -1,0 +1,12 @@
+#!/bin/bash
+
+lock_file="${XDG_RUNTIME_DIR:-/tmp}/omarchy-hypridle-power-monitor.lock"
+apply_script="$HOME/.local/bin/omarchy-hypridle-power-apply"
+
+exec 9>"$lock_file"
+flock -n 9 || exit 0
+
+while true; do
+  "$apply_script"
+  sleep 30
+done

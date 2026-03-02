@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Install VSCode and configure it.
+# Fedora port: uses Microsoft's RPM repo instead of AUR.
+
+set -e
+
+echo "Installing VSCode..."
+
+# Add Microsoft's VS Code repo if not present
+if [[ ! -f /etc/yum.repos.d/vscode.repo ]]; then
+  sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+  echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null
+fi
+
+sudo dnf install -y code
+
+mkdir -p ~/.vscode ~/.config/Code/User
+
+cat > ~/.vscode/argv.json << 'EOF'
+{
+  "password-store":"gnome-libsecret"
+}
+EOF
+
+printf '{\n  "update.mode": "none"\n}\n' > ~/.config/Code/User/settings.json
+
+# Apply Omarchy theme to VSCode if the command exists
+omarchy-theme-set-vscode 2>/dev/null || true
+
+setsid gtk-launch code 2>/dev/null &

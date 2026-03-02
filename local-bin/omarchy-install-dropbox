@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Install and start the Dropbox service.
+# Fedora port: uses Dropbox's own RPM repo.
+
+set -e
+
+echo "Installing Dropbox..."
+
+if ! rpm -q dropbox &>/dev/null && ! rpm -q nautilus-dropbox &>/dev/null; then
+  # Dropbox provides its own Fedora repo via nautilus-dropbox
+  sudo dnf install -y nautilus-dropbox 2>/dev/null || {
+    echo "Trying Dropbox RPM directly..."
+    cd /tmp
+    curl -LO "https://linux.dropbox.com/packages/fedora/nautilus-dropbox-2024.04.17-1.fedora.x86_64.rpm" 2>/dev/null || \
+    curl -LO "https://linux.dropbox.com/packages/fedora/nautilus-dropbox-2024.04.17-1.fedora.aarch64.rpm" 2>/dev/null
+    sudo dnf install -y nautilus-dropbox*.rpm 2>/dev/null || {
+      echo -e "\033[31mDropbox RPM not available for this architecture.\033[0m"
+      echo "Try installing via Flatpak: flatpak install flathub com.dropbox.Client"
+      exit 1
+    }
+  }
+fi
+
+echo "Starting Dropbox..."
+dropbox start 2>/dev/null || uwsm-app -- dropbox 2>/dev/null &
+echo "See Dropbox icon in system tray for setup."

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Channel switching is not applicable on Fedora (no Omarchy pacman repos).
+# We can still switch the git branch for config updates.
+
+if (($# == 0)); then
+  echo "Usage: omarchy-channel-set [stable|rc|edge|dev]"
+  exit 1
+fi
+
+channel="$1"
+
+case "$channel" in
+"stable") omarchy-branch-set "master" ;;
+"rc") omarchy-branch-set "rc" ;;
+"edge") omarchy-branch-set "master" ;;
+"dev") omarchy-branch-set "dev" ;;
+*) echo "Unknown channel: $channel"; exit 1 ;;
+esac
+
+echo -e "\e[33mNote: Git branch switched to match channel, but Fedora does not use Omarchy package repos.\e[0m"
+echo -e "\e[33mPackage updates use standard Fedora repos (dnf upgrade).\e[0m"

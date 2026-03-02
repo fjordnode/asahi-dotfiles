@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Install support for using Xbox controllers.
+# Fedora port: uses dnf package names and kernel-devel.
+
+set -e
+
+echo "Installing Xbox controller support..."
+
+# Install kernel headers for DKMS
+sudo dnf install -y kernel-devel dkms
+
+# xpadneo from COPR
+if ! dnf repolist 2>/dev/null | grep -q xpadneo; then
+  echo "Enabling xpadneo COPR repo..."
+  sudo dnf copr enable -y dolcetriade/xpadneo 2>/dev/null || {
+    echo -e "\033[33mxpadneo COPR not available. Installing from source...\033[0m"
+    cd /tmp
+    git clone https://github.com/atar-axis/xpadneo.git
+    cd xpadneo
+    sudo ./install.sh
+    cd /tmp && rm -rf xpadneo
+  }
+fi
+
+if dnf repolist 2>/dev/null | grep -q xpadneo; then
+  sudo dnf install -y xpadneo
+fi
+
+# Prevent xpad/xpadneo driver conflict
+echo blacklist xpad | sudo tee /etc/modprobe.d/blacklist-xpad.conf >/dev/null
+echo hid_xpadneo | sudo tee /etc/modules-load.d/xpadneo.conf >/dev/null
+
+# Give user access to game controllers
+sudo usermod -a -G input "$USER"
+
+if command -v gum &>/dev/null; then
+  gum confirm "Install requires reboot. Ready?" && sudo reboot now
+else
+  read -rp "Reboot now? [y/N] " yn
+  [[ "$yn" =~ ^[Yy]$ ]] && sudo reboot now
+fi

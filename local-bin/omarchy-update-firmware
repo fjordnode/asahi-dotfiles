@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Update system firmware using fwupd.
+# Fedora port: fwupd is typically pre-installed on Fedora.
+
+set -e
+
+# Ensure fwupd is installed
+if ! command -v fwupdmgr &>/dev/null; then
+  sudo dnf install -y fwupd
+fi
+
+echo -e "\e[32m\nUpdate firmware\e[0m"
+fwupdmgr refresh --force 2>/dev/null || true
+fwupdmgr update || true

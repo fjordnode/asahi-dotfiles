@@ -1,0 +1,89 @@
+#!/bin/bash
+
+set -euo pipefail
+
+THEME_FILE="/usr/share/sddm/themes/omarchy/Main.qml"
+LEGACY_IMPORT="import QtGraphicalEffects 1.0"
+PATCHED_IMPORT="import Qt5Compat.GraphicalEffects"
+
+notify_broken() {
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "SDDM theme needs patch" "Run: omarchy-sddm-theme-guard --fix"
+  fi
+}
+
+is_patched() {
+  grep -Fq "$PATCHED_IMPORT" "$THEME_FILE"
+}
+
+is_legacy() {
+  grep -Fq "$LEGACY_IMPORT" "$THEME_FILE"
+}
+
+check_only() {
+  if [[ ! -f $THEME_FILE ]]; then
+    echo "[error] Missing $THEME_FILE"
+    return 2
+  fi
+
+  if is_patched; then
+    echo "[ok] SDDM omarchy theme import is Qt6-compatible"
+    return 0
+  fi
+
+  echo "[warn] SDDM omarchy theme import is not patched"
+  if is_legacy; then
+    echo "[hint] Run: omarchy-sddm-theme-guard --fix"
+  else
+    echo "[hint] Unknown import state in $THEME_FILE"
+  fi
+  return 1
+}
+
+fix_patch() {
+  if [[ ! -f $THEME_FILE ]]; then
+    echo "[error] Missing $THEME_FILE"
+    return 2
+  fi
+
+  if is_patched; then
+    echo "[ok] Already patched"
+    return 0
+  fi
+
+  if ! is_legacy; then
+    echo "[error] Legacy import not found; refusing blind edit"
+    return 3
+  fi
+
+  local backup="$THEME_FILE.bak-opencode"
+  sudo cp "$THEME_FILE" "$backup"
+  sudo sed -i "s/^import QtGraphicalEffects 1.0$/import Qt5Compat.GraphicalEffects/" "$THEME_FILE"
+
+  if sudo grep -Fq "$PATCHED_IMPORT" "$THEME_FILE"; then
+    echo "[ok] Patched and backed up to $backup"
+    return 0
+  fi
+
+  echo "[error] Patch verification failed"
+  return 4
+}
+
+case "${1:-}" in
+  --fix)
+    fix_patch
+    ;;
+  --notify)
+    if ! check_only; then
+      notify_broken
+      exit 0
+    fi
+    ;;
+  ""|--check)
+    check_only
+    ;;
+  *)
+    echo "Usage: omarchy-sddm-theme-guard [--check|--notify|--fix]"
+    exit 64
+    ;;
+esac

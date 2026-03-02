@@ -1,0 +1,63 @@
+#!/bin/bash
+
+action=$1
+device="apple-panel-bl"
+target_percent=5
+state_file="${XDG_RUNTIME_DIR:-/tmp}/omarchy-hypridle-display-brightness.state"
+
+brightnessctl_get() {
+  local field=$1
+  if brightnessctl -d "$device" "$field" >/dev/null 2>&1; then
+    brightnessctl -d "$device" "$field"
+  else
+    brightnessctl "$field"
+  fi
+}
+
+brightnessctl_set() {
+  local value=$1
+  if brightnessctl -d "$device" set "$value" >/dev/null 2>&1; then
+    return
+  fi
+  brightnessctl set "$value" >/dev/null 2>&1
+}
+
+case "$action" in
+  dim)
+    if [[ -s $state_file ]]; then
+      exit 0
+    fi
+
+    current=$(brightnessctl_get g 2>/dev/null)
+    max=$(brightnessctl_get m 2>/dev/null)
+
+    if [[ -z $current || -z $max || $max == 0 ]]; then
+      exit 0
+    fi
+
+    current_percent=$(( current * 100 / max ))
+    if (( current_percent <= target_percent )); then
+      exit 0
+    fi
+
+    printf "%s" "$current" > "$state_file"
+    brightnessctl_set "${target_percent}%"
+    ;;
+
+  restore)
+    if [[ ! -s $state_file ]]; then
+      exit 0
+    fi
+
+    saved=$(<"$state_file")
+    if [[ $saved =~ ^[0-9]+$ ]]; then
+      brightnessctl_set "$saved"
+    fi
+
+    : > "$state_file"
+    ;;
+
+  *)
+    exit 1
+    ;;
+esac

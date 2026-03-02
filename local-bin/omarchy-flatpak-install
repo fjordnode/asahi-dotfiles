@@ -1,0 +1,51 @@
+#!/bin/bash
+
+pause_to_close() {
+  local message="${1:-Press Enter to close...}"
+  echo
+  read -r -p "$message" _
+}
+
+if ! command -v flatpak &>/dev/null; then
+  echo "flatpak is not installed."
+  pause_to_close "Press Enter to close..."
+  exit 1
+fi
+
+if ! command -v fzf &>/dev/null; then
+  echo "fzf is not installed."
+  pause_to_close "Press Enter to close..."
+  exit 1
+fi
+
+read -r -p "Search Flathub: " query
+if [[ -z $query ]]; then
+  exit 0
+fi
+
+results=$(flatpak search --columns=application,name,description "$query" 2>/dev/null)
+if [[ -z $results ]]; then
+  echo "No results found for: $query"
+  pause_to_close "Press Enter to close..."
+  exit 0
+fi
+
+selection=$(printf '%s\n' "$results" | fzf --multi --preview 'app=$(printf "%s" {} | awk "{print \$1}"); flatpak info "$app" 2>/dev/null || flatpak remote-info flathub "$app" 2>/dev/null' --preview-window 'down:65%:wrap' --preview-label='alt-p: toggle description, alt-j/k: scroll, tab: multi-select' --preview-label-pos='bottom' --bind 'alt-p:toggle-preview' --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up' --bind 'alt-k:preview-up,alt-j:preview-down' --color 'pointer:green,marker:green')
+
+if [[ -z $selection ]]; then
+  exit 0
+fi
+
+mapfile -t app_ids < <(printf '%s\n' "$selection" | awk '{print $1}')
+
+if (( ${#app_ids[@]} == 0 )); then
+  exit 0
+fi
+
+if flatpak install -y flathub "${app_ids[@]}"; then
+  omarchy-refresh-applications >/dev/null 2>&1 || true
+  omarchy-show-done 2>/dev/null || pause_to_close "Done! Press Enter to close..."
+else
+  echo "Install failed."
+  pause_to_close "Install failed. Press Enter to close..."
+fi

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Adjust brightness on the Apple display device.
+# Usage: omarchy-brightness-display <step>
+
+step="${1:-+5%}"
+device="apple-panel-bl"
+
+brightnessctl -d "$device" set "$step" >/dev/null
+
+omarchy-swayosd-brightness "$(brightnessctl -d "$device" -m | cut -d',' -f4 | tr -d '%')"

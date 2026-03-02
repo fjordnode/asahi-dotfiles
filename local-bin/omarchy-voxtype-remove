@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+# Remove voxtype and its configurations.
+# Fedora port: uses dnf and checks cargo install path.
+
+if command -v voxtype &>/dev/null; then
+  echo "Uninstalling Voxtype..."
+
+  # Remove services
+  systemctl --user stop voxtype.service 2>/dev/null || true
+  rm -f ~/.config/systemd/user/voxtype*
+  systemctl --user daemon-reload
+
+  # Remove via cargo if installed that way
+  cargo uninstall voxtype 2>/dev/null || true
+
+  # Remove dnf packages
+  sudo dnf remove -y wtype 2>/dev/null || true
+
+  # Remove configs
+  rm -rf ~/.config/voxtype
+  rm -rf ~/.local/share/voxtype
+
+  echo "Voxtype removed."
+else
+  echo "Voxtype was not installed."
+fi

@@ -1,0 +1,4 @@
+#!/bin/bash
+pkill -9 swayosd-server
+sleep 0.5
+setsid swayosd-server -s /home/hugo/.config/swayosd/style.css &disown

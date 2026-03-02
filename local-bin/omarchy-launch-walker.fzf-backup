@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Walker launcher — uses walker for app launching, search, clipboard, symbols.
+# Theme/background pickers keep the fzf-in-kitty approach (nicer UX with previews).
+
+export OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+export PATH="$HOME/.local/bin:$OMARCHY_PATH/bin:$PATH"
+
+if [[ "$*" == *"--dmenu"* ]]; then
+  # Route dmenu calls through walker
+  args=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dmenu) args+=(--dmenu) ;;
+      -p) args+=(--placeholder "$2"); shift ;;
+      -c) args+=(-c "$2"); shift ;;
+      --width) args+=(--width "$2"); shift ;;
+      --minheight) args+=(--minheight "$2"); shift ;;
+      --maxheight) args+=(--maxheight "$2"); shift ;;
+      -m) args+=(-m "$2"); shift ;;
+      *) ;;
+    esac
+    shift
+  done
+  exec walker "${args[@]}"
+
+elif [[ "$*" == *"-m menus:omarchythemes"* ]]; then
+  # Theme picker with live preview via fzf in a styled floating terminal
+  original_theme=$(cat ~/.config/omarchy/current/theme.name 2>/dev/null)
+  result_file=$(mktemp /tmp/omarchy-theme-pick.XXXXXX)
+
+  kitty --app-id=org.omarchy.themepicker --title "Theme Picker" \
+    -o remember_window_size=no -o initial_window_width=500 -o initial_window_height=440 \
+    -o window_padding_width=16 \
+    -o hide_window_decorations=yes \
+    -o background_opacity=0.85 \
+    -o font_size=15 \
+    sh -c "
+      ls ~/.local/share/omarchy/themes/ | fzf \
+        --prompt='  ' \
+        --header='↑↓ preview · enter apply · esc revert' \
+        --bind='focus:execute-silent(omarchy-theme-preview {})' \
+        --layout=reverse \
+        --no-info \
+        --no-scrollbar \
+        --pointer='▸' \
+        --marker='▪' \
+        > '$result_file'
+    "
+
+  chosen=$(cat "$result_file")
+  rm -f "$result_file"
+
+  if [[ -n "$chosen" ]]; then
+    omarchy-theme-set "$chosen"
+  else
+    [[ -n "$original_theme" ]] && omarchy-theme-preview "$original_theme"
+  fi
+
+elif [[ "$*" == *"-m menus:omarchyBackgroundSelector"* ]]; then
+  bgs=$(ls ~/.config/omarchy/current/theme/backgrounds/)
+  bg=$(echo "$bgs" | walker --dmenu --placeholder "Background ")
+  if [ -n "$bg" ]; then
+    ln -sf ~/.config/omarchy/current/theme/backgrounds/"$bg" ~/.config/omarchy/current/background
+    swww img ~/.config/omarchy/current/background --transition-type fade --transition-duration 1
+  fi
+
+else
+  # Pass all args through to walker (app launcher, clipboard, symbols, etc.)
+  exec walker "$@"
+fi

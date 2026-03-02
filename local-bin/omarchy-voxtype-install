@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+# Install voxtype and configure it for use.
+# Fedora port: voxtype-bin is not in Fedora repos, try alternative install methods.
+
+OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+
+confirm_msg="Install Voxtype + AI model (~150MB) to enable dictation?"
+if command -v gum &>/dev/null; then
+  gum confirm "$confirm_msg" || exit 0
+else
+  read -rp "$confirm_msg [y/N] " yn
+  [[ "$yn" =~ ^[Yy]$ ]] || exit 0
+fi
+
+# Install wtype (available in Fedora repos)
+sudo dnf install -y wtype
+
+# voxtype needs to be installed differently on Fedora
+if ! command -v voxtype &>/dev/null; then
+  echo "voxtype is not available in Fedora repos."
+  echo "Attempting to install via cargo..."
+  if command -v cargo &>/dev/null; then
+    cargo install voxtype 2>/dev/null || {
+      echo -e "\033[31mFailed to install voxtype. It may not be available for this platform.\033[0m"
+      exit 1
+    }
+  else
+    echo -e "\033[31mCargo not found. Install Rust first (Install > Development > Rust), then try again.\033[0m"
+    exit 1
+  fi
+fi
+
+# Setup voxtype
+mkdir -p ~/.config/voxtype
+cp "$OMARCHY_PATH/default/voxtype/config.toml" ~/.config/voxtype/ 2>/dev/null || true
+
+voxtype setup --download --no-post-install
+voxtype setup systemd
+
+omarchy-restart-waybar 2>/dev/null || true
+notify-send "Voxtype Dictation Ready" "Press Super + Ctrl + X to toggle dictation.\nEdit ~/.config/voxtype/config.toml for options." -t 10000 2>/dev/null || true

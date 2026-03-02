@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Lightweight theme preview — swaps wallpaper + terminal colors.
+# Full theme apply (waybar, mako, browser, etc.) happens via omarchy-theme-set on confirm.
+
+THEME_NAME="$1"
+[[ -z "$THEME_NAME" ]] && exit 1
+
+OMARCHY_THEMES="$HOME/.local/share/omarchy/themes"
+USER_THEMES="$HOME/.config/omarchy/themes"
+THEME_DIR=""
+[[ -d "$USER_THEMES/$THEME_NAME" ]] && THEME_DIR="$USER_THEMES/$THEME_NAME"
+[[ -z "$THEME_DIR" && -d "$OMARCHY_THEMES/$THEME_NAME" ]] && THEME_DIR="$OMARCHY_THEMES/$THEME_NAME"
+[[ -z "$THEME_DIR" ]] && exit 1
+
+# Swap wallpaper
+BG=$(find "$THEME_DIR/backgrounds" -maxdepth 1 -type f 2>/dev/null | sort | head -1)
+[[ -n "$BG" ]] && swww img "$BG" --transition-type fade --transition-duration 0.3 &
+
+# Generate kitty colors from theme's colors.toml and signal reload
+COLORS="$THEME_DIR/colors.toml"
+if [[ -f "$COLORS" ]] && pgrep -x kitty >/dev/null; then
+  KITTY_THEME="$HOME/.config/omarchy/current/theme/kitty.conf"
+  TPL="$HOME/.local/share/omarchy/default/themed/kitty.conf.tpl"
+
+  if [[ -f "$TPL" ]]; then
+    # Build sed script from colors.toml
+    sed_args=()
+    while IFS='=' read -r key value; do
+      key="${key//[\"\' ]/}"
+      [[ $key && $key != \#* ]] || continue
+      value="${value#*[\"\']}"
+      value="${value%%[\"\']*}"
+      sed_args+=(-e "s|{{ $key }}|$value|g")
+    done < "$COLORS"
+
+    sed "${sed_args[@]}" "$TPL" > "$KITTY_THEME"
+    killall -SIGUSR1 kitty 2>/dev/null
+  fi
+fi
+
+# Update nvim colorscheme in all running instances
+NVIM_THEME="$THEME_DIR/neovim.lua"
+if [[ -f "$NVIM_THEME" ]]; then
+  colorscheme=$(grep 'colorscheme' "$NVIM_THEME" | sed 's/.*= *"\([^"]*\)".*/\1/' | head -1)
+  if [[ -n "$colorscheme" ]]; then
+    for sock in /run/user/$(id -u)/nvim.*.0; do
+      [[ -S "$sock" ]] && nvim --server "$sock" --remote-send "<Cmd>silent! colorscheme $colorscheme<CR>" 2>/dev/null &
+    done
+  fi
+fi
+
+wait

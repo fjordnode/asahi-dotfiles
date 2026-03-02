@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Interactive package search. On Fedora, this searches COPR repos.
+# Fedora port: replaces AUR browser with COPR + dnf search.
+
+echo -e "\033[33mNote: AUR is not available on Fedora. Searching COPR and Fedora repos instead.\033[0m"
+echo
+
+fzf_args=(
+  --multi
+  --preview 'dnf info {1} 2>/dev/null || dnf copr search {1} 2>/dev/null | head -20'
+  --preview-label='alt-p: toggle description, alt-j/k: scroll, tab: multi-select'
+  --preview-label-pos='bottom'
+  --preview-window 'down:65%:wrap'
+  --bind 'alt-p:toggle-preview'
+  --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up'
+  --bind 'alt-k:preview-up,alt-j:preview-down'
+  --color 'pointer:green,marker:green'
+)
+
+pkg_names=$(dnf list --available 2>/dev/null | tail -n +2 | awk '{print $1}' | sed 's/\..*//' | sort -u | fzf "${fzf_args[@]}")
+
+if [[ -n $pkg_names ]]; then
+  sudo -v
+  echo "$pkg_names" | tr '\n' ' ' | xargs sudo dnf install -y
+  omarchy-refresh-applications
+  omarchy-show-done 2>/dev/null || echo "Done!"
+fi

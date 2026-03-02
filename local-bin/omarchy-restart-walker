@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Restart walker + elephant services
+pkill -f 'walker --gapplication-service' 2>/dev/null
+systemctl --user restart elephant.service
+sleep 0.5
+setsid walker --gapplication-service &>/dev/null &disown

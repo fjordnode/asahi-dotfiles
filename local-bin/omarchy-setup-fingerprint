@@ -1,0 +1,118 @@
+#!/bin/bash
+
+# Setup/remove fingerprint authentication.
+# Fedora port: uses dnf and authselect-compatible PAM editing.
+
+set -e
+
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+print_success() { echo -e "${GREEN}$1${NC}"; }
+print_error() { echo -e "${RED}$1${NC}"; }
+print_info() { echo -e "${YELLOW}$1${NC}"; }
+
+check_fingerprint_hardware() {
+  devices=$(fprintd-list "$USER" 2>/dev/null)
+  if [[ -z $devices ]]; then
+    print_error "\nNo fingerprint sensor detected."
+    return 1
+  fi
+  return 0
+}
+
+setup_pam_config() {
+  # On Fedora, prefer authselect if available
+  if command -v authselect &>/dev/null; then
+    print_info "Enabling fingerprint via authselect..."
+    sudo authselect enable-feature with-fingerprint 2>/dev/null || {
+      # Fallback to manual PAM editing
+      if ! grep -q pam_fprintd.so /etc/pam.d/sudo; then
+        print_info "Configuring sudo for fingerprint authentication..."
+        sudo sed -i '1i auth    sufficient pam_fprintd.so' /etc/pam.d/sudo
+      fi
+    }
+  else
+    if ! grep -q pam_fprintd.so /etc/pam.d/sudo; then
+      print_info "Configuring sudo for fingerprint authentication..."
+      sudo sed -i '1i auth    sufficient pam_fprintd.so' /etc/pam.d/sudo
+    fi
+  fi
+
+  if [[ -f /etc/pam.d/polkit-1 ]] && ! grep -q 'pam_fprintd.so' /etc/pam.d/polkit-1; then
+    print_info "Configuring polkit for fingerprint authentication..."
+    sudo sed -i '1i auth      sufficient pam_fprintd.so' /etc/pam.d/polkit-1
+  fi
+}
+
+add_hyprlock_fingerprint_icon() {
+  print_info "Adding fingerprint icon to hyprlock placeholder text..."
+  sed -i 's/placeholder_text = .*/placeholder_text = <span> Enter Password 󰈷 <\/span>/' ~/.config/hypr/hyprlock.conf
+  sed -i 's/fingerprint:enabled = .*/fingerprint:enabled = true/' ~/.config/hypr/hyprlock.conf
+}
+
+remove_hyprlock_fingerprint_icon() {
+  print_info "Removing fingerprint icon from hyprlock placeholder text..."
+  sed -i 's/placeholder_text = .*/placeholder_text = Enter Password/' ~/.config/hypr/hyprlock.conf
+  sed -i 's/fingerprint:enabled = .*/fingerprint:enabled = false/' ~/.config/hypr/hyprlock.conf
+}
+
+remove_pam_config() {
+  if command -v authselect &>/dev/null; then
+    print_info "Disabling fingerprint via authselect..."
+    sudo authselect disable-feature with-fingerprint 2>/dev/null || true
+  fi
+
+  if grep -q pam_fprintd.so /etc/pam.d/sudo; then
+    print_info "Removing fingerprint authentication from sudo..."
+    sudo sed -i '/pam_fprintd\.so/d' /etc/pam.d/sudo
+  fi
+
+  if [[ -f /etc/pam.d/polkit-1 ]] && grep -Fq 'pam_fprintd.so' /etc/pam.d/polkit-1; then
+    print_info "Removing fingerprint authentication from polkit..."
+    sudo sed -i '/pam_fprintd\.so/d' /etc/pam.d/polkit-1
+  fi
+}
+
+if [[ "--remove" == $1 ]]; then
+  print_success "Removing fingerprint scanner from authentication.\n"
+  remove_pam_config
+  remove_hyprlock_fingerprint_icon
+
+  print_info "Removing fingerprint packages..."
+  sudo dnf remove -y fprintd
+
+  print_success "Fingerprint authentication has been completely removed."
+else
+  print_success "Setting up fingerprint scanner for authentication.\n"
+
+  print_info "Installing required packages..."
+  sudo dnf install -y fprintd fprintd-pam usbutils
+
+  if ! check_fingerprint_hardware; then
+    exit 1
+  fi
+
+  setup_pam_config
+  add_hyprlock_fingerprint_icon
+
+  print_success "\nLet's setup your right index finger as the first fingerprint."
+  print_info "Keep moving the finger around on sensor until the process completes.\n"
+
+  if sudo fprintd-enroll "$USER"; then
+    print_success "\nFingerprint enrolled successfully!"
+
+    print_info "\nNow let's verify that it's working correctly.\n"
+    if fprintd-verify; then
+      print_success "\nPerfect! Fingerprint authentication is now configured."
+      print_info "You can use your fingerprint for sudo, polkit, and lock screen (Super + Escape)."
+    else
+      print_error "\nVerification failed. You may want to try enrolling again."
+    fi
+  else
+    print_error "\nEnrollment failed. Please try again."
+    exit 1
+  fi
+fi
