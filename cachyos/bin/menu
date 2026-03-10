@@ -1,0 +1,180 @@
+#!/bin/bash
+# System menu — walker/fuzzel based, no omarchy dependencies
+
+set -eu
+
+BACK_TO_EXIT=false
+
+back_to() {
+  local parent_menu="$1"
+  if [[ $BACK_TO_EXIT == "true" ]]; then
+    exit 0
+  elif [[ -n $parent_menu ]]; then
+    "$parent_menu"
+  else
+    show_main_menu
+  fi
+}
+
+dmenu() {
+  local prompt="$1"
+  local options="$2"
+  shift 2
+
+  if command -v fuzzel >/dev/null 2>&1; then
+    echo -e "$options" | fuzzel --dmenu --prompt="$prompt " "$@"
+  elif command -v walker >/dev/null 2>&1; then
+    echo -e "$options" | walker --dmenu --placeholder "$prompt" "$@"
+  else
+    echo -e "$options" | fzf --prompt="$prompt > " "$@"
+  fi
+}
+
+terminal() {
+  kitty "$@"
+}
+
+float_terminal() {
+  kitty --app-id tui.menu -e "$@"
+}
+
+open_in_editor() {
+  notify-send "Editing" "$1" 2>/dev/null || true
+  ${EDITOR:-nvim} "$1"
+}
+
+# ── Capture ──────────────────────────────────────────────────
+
+show_capture_menu() {
+  case $(dmenu "Capture" "  Screenshot\n  Screenrecord\n󰃉  Color picker") in
+  *Screenshot*) grim -g "$(slurp)" - | satty -f - ;;
+  *Screenrecord*) show_screenrecord_menu ;;
+  *Color*) pkill hyprpicker || hyprpicker -a ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+show_screenrecord_menu() {
+  local region
+  region=$(slurp 2>/dev/null) || { back_to show_capture_menu; return; }
+  local outfile="$HOME/Videos/recording-$(date +%Y%m%d-%H%M%S).mp4"
+
+  case $(dmenu "Record" "  No audio\n  Desktop audio\n  Desktop + mic") in
+  *"No audio"*) wf-recorder -g "$region" -f "$outfile" ;;
+  *"Desktop audio"*) wf-recorder -g "$region" --audio -f "$outfile" ;;
+  *"Desktop + mic"*) wf-recorder -g "$region" --audio -f "$outfile" ;;
+  *) back_to show_capture_menu ;;
+  esac
+}
+
+# ── Toggle ───────────────────────────────────────────────────
+
+show_toggle_menu() {
+  case $(dmenu "Toggle" "󰔎  Nightlight\n󱫖  Idle Lock\n󰍜  Top Bar\n  Transparency") in
+  *Nightlight*) pkill hyprsunset || hyprsunset -t 4500 & ;;
+  *Idle*) pkill hypridle && notify-send "Idle lock disabled" || { hypridle &disown; notify-send "Idle lock enabled"; } ;;
+  *Bar*) pkill -SIGUSR1 waybar ;;
+  *Transparency*) hyprctl dispatch setprop "address:$(hyprctl activewindow -j | jq -r '.address')" opaque toggle ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+# ── Style ────────────────────────────────────────────────────
+
+show_style_menu() {
+  case $(dmenu "Style" "󰸌  Theme\n󰅒  Background\n󰕆  Hyprland\n󰋽  About") in
+  *Theme*) theme-pick ;;
+  *Background*) theme-bg-next ;;
+  *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;
+  *About*) float_terminal fastfetch ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+# ── Setup ────────────────────────────────────────────────────
+
+show_setup_menu() {
+  local options="  Audio\n  WiFi\n󰂯  Bluetooth"
+  options="$options\n󱐋  Power Profile"
+  options="$options\n󰍹  Monitors"
+  [[ -f ~/.config/hypr/bindings.conf ]] && options="$options\n  Keybindings"
+  [[ -f ~/.config/hypr/input.conf ]] && options="$options\n  Input"
+
+  case $(dmenu "Setup" "$options") in
+  *Audio*) pavucontrol ;;
+  *WiFi*) launch-tui impala ;;
+  *Bluetooth*) launch-tui bluetui ;;
+  *Power*) show_power_profile_menu ;;
+  *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
+  *Keybindings*) open_in_editor ~/.config/hypr/bindings.conf ;;
+  *Input*) open_in_editor ~/.config/hypr/input.conf ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+show_power_profile_menu() {
+  if ! command -v powerprofilesctl >/dev/null 2>&1; then
+    notify-send "power-profiles-daemon not installed"
+    return
+  fi
+  local current
+  current=$(powerprofilesctl get)
+  local profile
+  profile=$(dmenu "Power ($current)" "$(powerprofilesctl list | grep -oP '^\s+\K\S+' | sort -u)") || { back_to show_setup_menu; return; }
+  [[ -n $profile ]] && powerprofilesctl set "$profile"
+}
+
+# ── Restart ──────────────────────────────────────────────────
+
+show_restart_menu() {
+  case $(dmenu "Restart" "  Hypridle\n  SwayOSD\n󰌧  Walker\n󰍜  Waybar\n  Mako") in
+  *Hypridle*) killall hypridle 2>/dev/null; hypridle &disown ;;
+  *SwayOSD*) killall swayosd-server 2>/dev/null; swayosd-server -s ~/.config/themes/current/swayosd.css &disown ;;
+  *Walker*) killall walker 2>/dev/null; sleep 0.3; walker --gapplication-service &disown ;;
+  *Waybar*) killall waybar 2>/dev/null; sleep 0.3; waybar &disown ;;
+  *Mako*) makoctl reload 2>/dev/null ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+# ── System ───────────────────────────────────────────────────
+
+show_system_menu() {
+  case $(dmenu "System" "  Lock\n󰒲  Suspend\n󰍃  Logout\n󰜉  Restart\n󰐥  Shutdown") in
+  *Lock*) hyprlock ;;
+  *Suspend*) systemctl suspend ;;
+  *Logout*) hyprctl dispatch exit ;;
+  *Restart*) systemctl reboot ;;
+  *Shutdown*) systemctl poweroff ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+# ── Main ─────────────────────────────────────────────────────
+
+show_main_menu() {
+  go_to_menu "$(dmenu "Menu" "󰀻  Apps\n󱓞  Capture\n󰔎  Toggle\n  Style\n  Setup\n  Restart\n  System")"
+}
+
+go_to_menu() {
+  case "${1,,}" in
+  *apps*)        walker ;;
+  *capture*)     show_capture_menu ;;
+  *toggle*)      show_toggle_menu ;;
+  *style*)       show_style_menu ;;
+  *setup*)       show_setup_menu ;;
+  *restart*)     show_restart_menu ;;
+  *system*)      show_system_menu ;;
+  esac
+}
+
+# Allow user extensions
+USER_EXTENSIONS="$HOME/.config/menu/extensions.sh"
+[[ -f $USER_EXTENSIONS ]] && source "$USER_EXTENSIONS"
+
+if [[ -n ${1:-} ]]; then
+  BACK_TO_EXIT=true
+  go_to_menu "$1"
+else
+  show_main_menu
+fi
