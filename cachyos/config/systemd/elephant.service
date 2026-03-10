@@ -1,0 +1,12 @@
+[Unit]
+Description=Elephant - data provider for Walker
+After=graphical-session.target
+
+[Service]
+Environment=DOTFILES_DIR=%h/.local/share/dotfiles
+ExecStart=/usr/bin/elephant
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

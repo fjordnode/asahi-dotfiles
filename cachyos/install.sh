@@ -17,6 +17,7 @@ PKGS=(
 
   # Launcher
   walker-bin            # AUR: app launcher
+  elephant              # AUR: data provider for walker (theme picker etc)
   fuzzel                # dmenu fallback
 
   # Clipboard

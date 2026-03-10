@@ -1,7 +1,9 @@
 force_keyboard_focus = true
 selection_wrap = true
+theme = "default"
+additional_theme_location = "~/.config/walker/themes/"
 hide_action_hints = true
-installed_providers = ["desktopapplications", "websearch", "symbols", "providerlist", "files", "calc", "clipboard", "runner", "windows"]
+installed_providers = ["desktopapplications", "websearch", "symbols", "providerlist", "files", "calc", "clipboard", "runner", "windows", "menus:themes"]
 
 [placeholders]
 "default" = { input = " Search...", list = "No Results" }
@@ -44,6 +46,21 @@ prefix = "$"
 provider = "clipboard"
 
 [providers.actions]
+fallback = [
+  { action = "menus:open", label = "open", after = "Nothing" },
+  { action = "menus:default", label = "run", after = "Close" },
+  { action = "menus:parent", label = "back", bind = "Escape", after = "Nothing" },
+]
+
 desktopapplications = [
   { action = "start", default = true, bind = "Return" },
 ]
+
+"menus:themes" = [
+  { action = "activate", default = true, bind = "Return", label = "Apply" },
+  { action = "preview", bind = "ctrl p", label = "Preview", after = "Nothing" },
+]
+
+[[emergencies]]
+text = "Restart Walker"
+command = "killall walker; sleep 0.3; walker --gapplication-service"

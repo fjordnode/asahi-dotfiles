@@ -12,7 +12,7 @@ cp -r "$SCRIPT_DIR/templates" "$DOTFILES_DIR/"
 
 echo ""
 echo "Copying configs..."
-for dir in hypr waybar walker xremap kitty mako; do
+for dir in hypr waybar walker xremap kitty mako elephant; do
   src="$SCRIPT_DIR/config/$dir"
   dst="$HOME/.config/$dir"
   if [[ -d "$src" ]]; then
@@ -28,6 +28,13 @@ for script in "$SCRIPT_DIR/bin/"*; do
   install -m 755 "$script" "$HOME/.local/bin/"
   echo "  $(basename "$script")"
 done
+
+echo ""
+echo "Installing systemd services..."
+mkdir -p "$HOME/.config/systemd/user"
+cp "$SCRIPT_DIR/config/systemd/"*.service "$HOME/.config/systemd/user/"
+systemctl --user daemon-reload
+systemctl --user enable elephant.service
 
 echo ""
 echo "Setting up theme directories..."
