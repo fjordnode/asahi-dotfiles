@@ -17,7 +17,11 @@ PKGS=(
 
   # Launcher
   walker-bin            # AUR: app launcher
-  elephant              # AUR: data provider for walker (theme picker etc)
+  elephant              # AUR: data provider for walker
+  elephant-desktopapplications  # AUR: .desktop file provider
+  elephant-clipboard    # AUR: clipboard provider
+  elephant-providerlist # AUR: provider list
+  elephant-menus        # AUR: Lua menu provider (theme picker etc)
   fuzzel                # dmenu fallback
 
   # Clipboard
@@ -77,7 +81,7 @@ PKGS=(
 )
 
 echo "Installing packages..."
-yay -S --needed --noconfirm "${PKGS[@]}"
+paru -S --needed --noconfirm "${PKGS[@]}"
 
 # Ensure cargo TUI tools if AUR versions unavailable
 for tool in impala bluetui; do

@@ -7,7 +7,7 @@ set -eu
 DOTFILES_DIR="${DOTFILES_DIR:-$HOME/.local/share/dotfiles}"
 TEMPLATES_DIR="$DOTFILES_DIR/templates"
 USER_TEMPLATES_DIR="$HOME/.config/themes/templates"
-THEME_DIR="$HOME/.config/themes/current"
+THEME_DIR="${THEME_DIR:-$HOME/.config/themes/current}"
 COLORS_FILE="$THEME_DIR/colors.toml"
 
 # Convert hex color to decimal RGB (e.g., "#1e1e2e" -> "30,30,46")
