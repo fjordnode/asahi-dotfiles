@@ -1,0 +1,37 @@
+#!/bin/bash
+# Interactive theme picker using fuzzel or walker
+
+set -eu
+
+DOTFILES_DIR="${DOTFILES_DIR:-$HOME/.local/share/dotfiles}"
+THEMES_DIR="$DOTFILES_DIR/themes"
+USER_THEMES_DIR="$HOME/.config/themes/custom"
+
+# Collect all available themes
+themes=()
+for dir in "$THEMES_DIR"/*/; do
+  [[ -d $dir ]] && themes+=("$(basename "$dir")")
+done
+for dir in "$USER_THEMES_DIR"/*/; do
+  [[ -d $dir ]] && themes+=("$(basename "$dir")")
+done
+
+# Deduplicate and sort
+mapfile -t themes < <(printf '%s\n' "${themes[@]}" | sort -u)
+
+# Show current theme
+current=""
+[[ -f "$HOME/.config/themes/current.name" ]] && current=$(cat "$HOME/.config/themes/current.name")
+
+# Pick via fuzzel or walker
+selected=$(printf '%s\n' "${themes[@]}" | \
+  if command -v fuzzel >/dev/null 2>&1; then
+    fuzzel --dmenu --prompt="Theme ($current) "
+  elif command -v walker >/dev/null 2>&1; then
+    walker --dmenu --placeholder "Theme ($current)"
+  else
+    fzf --prompt="Theme ($current) > "
+  fi
+) || exit 0
+
+[[ -n $selected ]] && exec theme-set "$selected"

@@ -1,0 +1,22 @@
+#!/bin/bash
+# Set a specific image as the current wallpaper
+
+set -eu
+
+if [[ -z ${1:-} ]]; then
+  echo "Usage: theme-bg-set <path-to-image>" >&2
+  exit 1
+fi
+
+BACKGROUND="$1"
+LINK="$HOME/.config/themes/current/background"
+
+ln -nsf "$BACKGROUND" "$LINK"
+
+if command -v swww >/dev/null 2>&1; then
+  swww img "$LINK" --transition-type fade --transition-duration 1
+else
+  # Fallback to swaybg
+  pkill -x swaybg 2>/dev/null || true
+  setsid swaybg -i "$LINK" -m fill >/dev/null 2>&1 &
+fi

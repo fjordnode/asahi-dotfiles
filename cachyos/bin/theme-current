@@ -1,0 +1,10 @@
+#!/bin/bash
+# Display current theme name (Title Case)
+
+NAME_FILE="$HOME/.config/themes/current.name"
+
+if [[ -f $NAME_FILE ]]; then
+  sed -E 's/(^|-)([a-z])/\1\u\2/g; s/-/ /g' "$NAME_FILE"
+else
+  echo "Unknown"
+fi

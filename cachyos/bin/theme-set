@@ -1,0 +1,101 @@
+#!/bin/bash
+# Apply a theme — renders templates, swaps configs atomically, reloads apps
+
+set -eu
+
+if [[ -z ${1:-} ]]; then
+  echo "Usage: theme-set <theme-name>"
+  exit 1
+fi
+
+DOTFILES_DIR="${DOTFILES_DIR:-$HOME/.local/share/dotfiles}"
+THEMES_DIR="$DOTFILES_DIR/themes"
+USER_THEMES_DIR="$HOME/.config/themes/custom"
+CURRENT_DIR="$HOME/.config/themes/current"
+NEXT_DIR="$HOME/.config/themes/next"
+
+THEME_NAME=$(echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+
+if [[ ! -d "$THEMES_DIR/$THEME_NAME" ]] && [[ ! -d "$USER_THEMES_DIR/$THEME_NAME" ]]; then
+  echo "Theme '$THEME_NAME' not found"
+  echo "Available themes:"
+  ls "$THEMES_DIR" 2>/dev/null | sed 's/^/  /'
+  exit 1
+fi
+
+echo "Applying theme: $THEME_NAME"
+
+# Atomic swap: build in next/, then move to current/
+rm -rf "$NEXT_DIR"
+mkdir -p "$NEXT_DIR"
+
+# Copy built-in theme first, then overlay user customizations
+cp -r "$THEMES_DIR/$THEME_NAME/"* "$NEXT_DIR/" 2>/dev/null || true
+cp -r "$USER_THEMES_DIR/$THEME_NAME/"* "$NEXT_DIR/" 2>/dev/null || true
+
+# Render templates into next/
+THEME_DIR="$NEXT_DIR" theme-render
+
+# Swap
+rm -rf "$CURRENT_DIR"
+mv "$NEXT_DIR" "$CURRENT_DIR"
+
+# Store theme name
+echo "$THEME_NAME" >"$HOME/.config/themes/current.name"
+
+# ── Apply to running apps ────────────────────────────────────
+
+# Hyprland: source theme colors
+if pgrep -x Hyprland >/dev/null 2>&1; then
+  hyprctl reload >/dev/null 2>&1 || true
+fi
+
+# Waybar: restart to pick up new CSS
+if pgrep -x waybar >/dev/null 2>&1; then
+  killall waybar 2>/dev/null; sleep 0.3; waybar &disown
+fi
+
+# Mako: restart notification daemon
+if pgrep -x mako >/dev/null 2>&1; then
+  makoctl reload 2>/dev/null || true
+fi
+
+# SwayOSD: restart
+if pgrep -x swayosd-server >/dev/null 2>&1; then
+  killall swayosd-server 2>/dev/null
+  swayosd-server -s "$HOME/.config/themes/current/swayosd.css" &disown 2>/dev/null
+fi
+
+# Kitty: live-reload colors in all instances
+if pgrep -x kitty >/dev/null 2>&1 && [[ -f "$CURRENT_DIR/kitty.conf" ]]; then
+  for sock in /tmp/kitty-*; do
+    kitty @ --to "unix:$sock" set-colors --all "$CURRENT_DIR/kitty.conf" 2>/dev/null || true
+  done
+fi
+
+# btop: copy theme
+if [[ -f "$CURRENT_DIR/btop.theme" ]]; then
+  mkdir -p "$HOME/.config/btop/themes"
+  cp "$CURRENT_DIR/btop.theme" "$HOME/.config/btop/themes/current.theme"
+fi
+
+# Starship: copy config
+if [[ -f "$CURRENT_DIR/starship.toml" ]]; then
+  cp "$CURRENT_DIR/starship.toml" "$HOME/.config/starship.toml"
+fi
+
+# Fuzzel: copy config
+if [[ -f "$CURRENT_DIR/fuzzel.ini" ]]; then
+  mkdir -p "$HOME/.config/fuzzel"
+  cp "$CURRENT_DIR/fuzzel.ini" "$HOME/.config/fuzzel/fuzzel.ini"
+fi
+
+# Background
+theme-bg-next 2>/dev/null || true
+
+# Run user hook if it exists
+if [[ -x "$HOME/.config/themes/hooks/theme-set" ]]; then
+  "$HOME/.config/themes/hooks/theme-set" "$THEME_NAME"
+fi
+
+echo "Theme '$THEME_NAME' applied"
