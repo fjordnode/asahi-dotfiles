@@ -1,11 +1,18 @@
 #!/bin/bash
-# Interactive theme picker using fuzzel or walker
+# Interactive theme picker with live preview
+# Previews wallpaper + kitty colors as you browse, full apply on confirm
 
 set -eu
 
 DOTFILES_DIR="${DOTFILES_DIR:-$HOME/.local/share/dotfiles}"
 THEMES_DIR="$DOTFILES_DIR/themes"
 USER_THEMES_DIR="$HOME/.config/themes/custom"
+
+# Save current state for rollback on cancel
+CURRENT_NAME=""
+[[ -f "$HOME/.config/themes/current.name" ]] && CURRENT_NAME=$(cat "$HOME/.config/themes/current.name")
+CURRENT_BG=""
+[[ -L "$HOME/.config/themes/current/background" ]] && CURRENT_BG=$(readlink "$HOME/.config/themes/current/background")
 
 # Collect all available themes
 themes=()
@@ -15,23 +22,74 @@ done
 for dir in "$USER_THEMES_DIR"/*/; do
   [[ -d $dir ]] && themes+=("$(basename "$dir")")
 done
-
-# Deduplicate and sort
 mapfile -t themes < <(printf '%s\n' "${themes[@]}" | sort -u)
 
-# Show current theme
-current=""
-[[ -f "$HOME/.config/themes/current.name" ]] && current=$(cat "$HOME/.config/themes/current.name")
+preview_theme() {
+  local name="$1"
+  local theme_dir=""
 
-# Pick via fuzzel or walker
-selected=$(printf '%s\n' "${themes[@]}" | \
-  if command -v fuzzel >/dev/null 2>&1; then
-    fuzzel --dmenu --prompt="Theme ($current) "
-  elif command -v walker >/dev/null 2>&1; then
-    walker --dmenu --placeholder "Theme ($current)"
-  else
-    fzf --prompt="Theme ($current) > "
+  [[ -d "$USER_THEMES_DIR/$name" ]] && theme_dir="$USER_THEMES_DIR/$name"
+  [[ -z "$theme_dir" && -d "$THEMES_DIR/$name" ]] && theme_dir="$THEMES_DIR/$name"
+  [[ -z "$theme_dir" ]] && return
+
+  # Preview wallpaper
+  local bg
+  bg=$(find "$theme_dir/backgrounds" -maxdepth 1 -type f 2>/dev/null | sort | head -1)
+  [[ -n "$bg" ]] && swww img "$bg" --transition-type fade --transition-duration 0.3 &
+
+  # Preview kitty colors
+  local colors="$theme_dir/colors.toml"
+  local tpl="$DOTFILES_DIR/templates/kitty.conf.tpl"
+  if [[ -f "$colors" && -f "$tpl" ]] && pgrep -x kitty >/dev/null; then
+    local tmpfile
+    tmpfile=$(mktemp)
+    local sed_args=()
+    while IFS='=' read -r key value; do
+      key="${key//[\"\' ]/}"
+      [[ $key && $key != \#* ]] || continue
+      value="${value#*[\"\']}"
+      value="${value%%[\"\']*}"
+      sed_args+=(-e "s|{{ $key }}|$value|g")
+    done <"$colors"
+    sed "${sed_args[@]}" "$tpl" >"$tmpfile"
+    killall -SIGUSR1 kitty 2>/dev/null || true
+    # Set colors on all kitty instances via socket
+    for sock in /tmp/kitty-*; do
+      kitty @ --to "unix:$sock" set-colors --all "$tmpfile" 2>/dev/null || true
+    done
+    rm -f "$tmpfile"
   fi
-) || exit 0
+}
 
-[[ -n $selected ]] && exec theme-set "$selected"
+restore_current() {
+  # Restore wallpaper
+  if [[ -n "$CURRENT_BG" && -f "$CURRENT_BG" ]]; then
+    swww img "$CURRENT_BG" --transition-type fade --transition-duration 0.3 &
+  fi
+
+  # Restore kitty colors
+  local current_kitty="$HOME/.config/themes/current/kitty.conf"
+  if [[ -f "$current_kitty" ]] && pgrep -x kitty >/dev/null; then
+    for sock in /tmp/kitty-*; do
+      kitty @ --to "unix:$sock" set-colors --all "$current_kitty" 2>/dev/null || true
+    done
+  fi
+}
+
+# Use fzf in kitty for preview support
+if [[ -t 0 ]] || [[ -n "${THEME_PICK_FZF:-}" ]]; then
+  # Running inside a terminal — use fzf with preview
+  selected=$(printf '%s\n' "${themes[@]}" | fzf \
+    --prompt="Theme ($CURRENT_NAME) > " \
+    --preview="theme-preview {}" \
+    --preview-window=right:40%:wrap \
+    --bind="focus:execute-silent(theme-preview {})" \
+  ) || { restore_current; exit 0; }
+
+  [[ -n "$selected" ]] && exec theme-set "$selected"
+else
+  # Running from keybind — launch in a floating kitty
+  export THEME_PICK_FZF=1
+  export DOTFILES_DIR
+  kitty --app-id tui.themepicker -e theme-pick
+fi
