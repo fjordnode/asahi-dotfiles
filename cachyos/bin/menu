@@ -1,5 +1,5 @@
 #!/bin/bash
-# System menu — walker/fuzzel based, no omarchy dependencies
+# System menu — walker/fuzzel based, replaces omarchy-menu
 
 set -eu
 
@@ -16,15 +16,15 @@ back_to() {
   fi
 }
 
-dmenu() {
+menu() {
   local prompt="$1"
   local options="$2"
   shift 2
 
   if command -v fuzzel >/dev/null 2>&1; then
-    echo -e "$options" | fuzzel --dmenu --prompt="$prompt " "$@"
+    echo -e "$options" | fuzzel --dmenu --prompt="$prompt… " "$@"
   elif command -v walker >/dev/null 2>&1; then
-    echo -e "$options" | walker --dmenu --placeholder "$prompt" "$@"
+    echo -e "$options" | walker --dmenu --placeholder "$prompt…" "$@"
   else
     echo -e "$options" | fzf --prompt="$prompt > " "$@"
   fi
@@ -35,58 +35,109 @@ terminal() {
 }
 
 float_terminal() {
-  kitty --app-id tui.menu -e "$@"
+  kitty --app-id tui.menu -e bash -c "$*"
 }
 
 open_in_editor() {
-  notify-send "Editing" "$1" 2>/dev/null || true
-  ${EDITOR:-nvim} "$1"
+  notify-send "Editing config file" "$1" 2>/dev/null || true
+  kitty -e ${EDITOR:-nvim} "$1"
 }
 
-# ── Capture ──────────────────────────────────────────────────
+install() {
+  float_terminal "echo 'Installing $1...'; yay -S --needed $2 && echo 'Done!' && read -n1"
+}
+
+install_and_launch() {
+  float_terminal "echo 'Installing $1...'; yay -S --needed $2 && echo 'Done!' && read -n1; setsid gtk-launch $3 2>/dev/null &"
+}
+
+# ── Learn ────────────────────────────────────────────────────
+
+show_learn_menu() {
+  case $(menu "Learn" "  Keybindings\n  Hyprland\n󰣇  Arch\n  Neovim\n󱆃  Bash") in
+  *Keybindings*) xdg-open "https://wiki.hyprland.org/Configuring/Binds/" ;;
+  *Hyprland*) xdg-open "https://wiki.hypr.land/" ;;
+  *Arch*) xdg-open "https://wiki.archlinux.org/title/Main_page" ;;
+  *Neovim*) xdg-open "https://www.lazyvim.org/keymaps" ;;
+  *Bash*) xdg-open "https://devhints.io/bash" ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+# ── Trigger ──────────────────────────────────────────────────
+
+show_trigger_menu() {
+  case $(menu "Trigger" "  Capture\n  Share\n󰔎  Toggle\n  Hardware") in
+  *Capture*) show_capture_menu ;;
+  *Share*) show_share_menu ;;
+  *Toggle*) show_toggle_menu ;;
+  *Hardware*) show_hardware_menu ;;
+  *) back_to show_main_menu ;;
+  esac
+}
 
 show_capture_menu() {
-  case $(dmenu "Capture" "  Screenshot\n  Screenrecord\n󰃉  Color picker") in
+  case $(menu "Capture" "  Screenshot\n  Screenrecord\n󰃉  Color") in
   *Screenshot*) grim -g "$(slurp)" - | satty -f - ;;
   *Screenrecord*) show_screenrecord_menu ;;
   *Color*) pkill hyprpicker || hyprpicker -a ;;
-  *) back_to show_main_menu ;;
+  *) back_to show_trigger_menu ;;
   esac
 }
 
 show_screenrecord_menu() {
-  local region
-  region=$(slurp 2>/dev/null) || { back_to show_capture_menu; return; }
+  # Stop existing recording if active
+  if pkill -SIGINT wf-recorder 2>/dev/null; then
+    notify-send "Recording saved" 2>/dev/null || true
+    exit 0
+  fi
+
   local outfile="$HOME/Videos/recording-$(date +%Y%m%d-%H%M%S).mp4"
 
-  case $(dmenu "Record" "  No audio\n  Desktop audio\n  Desktop + mic") in
-  *"No audio"*) wf-recorder -g "$region" -f "$outfile" ;;
-  *"Desktop audio"*) wf-recorder -g "$region" --audio -f "$outfile" ;;
-  *"Desktop + mic"*) wf-recorder -g "$region" --audio -f "$outfile" ;;
+  case $(menu "Screenrecord" "  With no audio\n  With desktop audio\n  With desktop + microphone audio") in
+  *"With no audio"*) wf-recorder -g "$(slurp)" -f "$outfile" &disown ;;
+  *"With desktop audio"*) wf-recorder -g "$(slurp)" --audio -f "$outfile" &disown ;;
+  *"With desktop + microphone"*) wf-recorder -g "$(slurp)" --audio -f "$outfile" &disown ;;
   *) back_to show_capture_menu ;;
   esac
 }
 
-# ── Toggle ───────────────────────────────────────────────────
+show_share_menu() {
+  case $(menu "Share" "  Clipboard\n  File\n  Folder") in
+  *Clipboard*) wl-paste | wl-copy ;;
+  *File*) xdg-open "$(zenity --file-selection 2>/dev/null)" 2>/dev/null ;;
+  *Folder*) dolphin "$(pwd)" ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
 
 show_toggle_menu() {
-  case $(dmenu "Toggle" "󰔎  Nightlight\n󱫖  Idle Lock\n󰍜  Top Bar\n  Transparency") in
-  *Nightlight*) pkill hyprsunset || hyprsunset -t 4500 & ;;
-  *Idle*) pkill hypridle && notify-send "Idle lock disabled" || { hypridle &disown; notify-send "Idle lock enabled"; } ;;
+  case $(menu "Toggle" "󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰍜  Top Bar") in
+  *Screensaver*) hyprlock ;;
+  *Nightlight*) pkill hyprsunset 2>/dev/null && notify-send "Nightlight off" || { hyprsunset -t 4500 &disown; notify-send "Nightlight on"; } ;;
+  *Idle*) pkill hypridle 2>/dev/null && notify-send "Idle lock disabled" || { hypridle &disown; notify-send "Idle lock enabled"; } ;;
   *Bar*) pkill -SIGUSR1 waybar ;;
-  *Transparency*) hyprctl dispatch setprop "address:$(hyprctl activewindow -j | jq -r '.address')" opaque toggle ;;
-  *) back_to show_main_menu ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
+
+show_hardware_menu() {
+  case $(menu "Hardware" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth") in
+  *Audio*) float_terminal "systemctl --user restart pipewire pipewire-pulse wireplumber && echo 'PipeWire restarted' && sleep 2" ;;
+  *Wi-Fi*) float_terminal "nmcli radio wifi off && sleep 1 && nmcli radio wifi on && echo 'Wi-Fi restarted' && sleep 2" ;;
+  *Bluetooth*) float_terminal "sudo systemctl restart bluetooth && echo 'Bluetooth restarted' && sleep 2" ;;
+  *) back_to show_trigger_menu ;;
   esac
 }
 
 # ── Style ────────────────────────────────────────────────────
 
 show_style_menu() {
-  case $(dmenu "Style" "󰸌  Theme\n󰅒  Background\n󰕆  Hyprland\n󰋽  About") in
+  case $(menu "Style" "󰸌  Theme\n󰅒  Background\n󰕆  Hyprland\n󰋽  About") in
   *Theme*) theme-pick ;;
   *Background*) theme-bg-next ;;
   *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;
-  *About*) float_terminal fastfetch ;;
+  *About*) float_terminal "fastfetch; read -n1" ;;
   *) back_to show_main_menu ;;
   esac
 }
@@ -94,25 +145,27 @@ show_style_menu() {
 # ── Setup ────────────────────────────────────────────────────
 
 show_setup_menu() {
-  local options="  Audio\n  WiFi\n󰂯  Bluetooth"
-  options="$options\n󱐋  Power Profile"
-  options="$options\n󰍹  Monitors"
+  local options="  Audio\n  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n  System Sleep\n󰍹  Monitors"
   [[ -f ~/.config/hypr/bindings.conf ]] && options="$options\n  Keybindings"
   [[ -f ~/.config/hypr/input.conf ]] && options="$options\n  Input"
+  options="$options\n  Security\n  Config"
 
-  case $(dmenu "Setup" "$options") in
+  case $(menu "Setup" "$options") in
   *Audio*) pavucontrol ;;
-  *WiFi*) launch-tui impala ;;
+  *Wifi*) launch-tui impala ;;
   *Bluetooth*) launch-tui bluetui ;;
-  *Power*) show_power_profile_menu ;;
+  *Power*) show_setup_power_menu ;;
+  *System*) show_setup_system_menu ;;
   *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
   *Keybindings*) open_in_editor ~/.config/hypr/bindings.conf ;;
   *Input*) open_in_editor ~/.config/hypr/input.conf ;;
+  *Security*) show_setup_security_menu ;;
+  *Config*) show_setup_config_menu ;;
   *) back_to show_main_menu ;;
   esac
 }
 
-show_power_profile_menu() {
+show_setup_power_menu() {
   if ! command -v powerprofilesctl >/dev/null 2>&1; then
     notify-send "power-profiles-daemon not installed"
     return
@@ -120,27 +173,228 @@ show_power_profile_menu() {
   local current
   current=$(powerprofilesctl get)
   local profile
-  profile=$(dmenu "Power ($current)" "$(powerprofilesctl list | grep -oP '^\s+\K\S+' | sort -u)") || { back_to show_setup_menu; return; }
+  profile=$(menu "Power Profile" "$(powerprofilesctl list | grep -oP '^\s+\K\S+' | sort -u)" "" "$current") || { back_to show_setup_menu; return; }
   [[ -n $profile ]] && powerprofilesctl set "$profile"
+}
+
+show_setup_system_menu() {
+  local options=""
+  if systemctl is-active --quiet suspend.target 2>/dev/null; then
+    options="󰒲  Disable Suspend"
+  else
+    options="󰒲  Enable Suspend"
+  fi
+
+  case $(menu "System" "$options") in
+  *"Disable Suspend"*) sudo systemctl mask suspend.target && notify-send "Suspend disabled" ;;
+  *"Enable Suspend"*) sudo systemctl unmask suspend.target && notify-send "Suspend enabled" ;;
+  *) back_to show_setup_menu ;;
+  esac
+}
+
+show_setup_security_menu() {
+  case $(menu "Security" "󰈷  Fingerprint\n  Fido2") in
+  *Fingerprint*) float_terminal "fprintd-enroll; read -n1" ;;
+  *Fido2*) float_terminal "echo 'Use systemd-cryptenroll for FIDO2 setup'; read -n1" ;;
+  *) back_to show_setup_menu ;;
+  esac
+}
+
+show_setup_config_menu() {
+  case $(menu "Config" "  Hyprland\n  Hypridle\n  Hyprlock\n  SwayOSD\n󰌧  Walker\n󰍜  Waybar\n  Mako") in
+  *Hyprland*) open_in_editor ~/.config/hypr/hyprland.conf ;;
+  *Hypridle*) open_in_editor ~/.config/hypr/hypridle.conf ;;
+  *Hyprlock*) open_in_editor ~/.config/hypr/hyprlock.conf ;;
+  *SwayOSD*) open_in_editor ~/.config/swayosd/config.toml ;;
+  *Walker*) open_in_editor ~/.config/walker/config.toml ;;
+  *Waybar*) open_in_editor ~/.config/waybar/config.jsonc ;;
+  *Mako*) open_in_editor ~/.config/mako/config ;;
+  *) back_to show_setup_menu ;;
+  esac
+}
+
+# ── Install ──────────────────────────────────────────────────
+
+show_install_menu() {
+  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n  Gaming") in
+  *"AUR"*) terminal yay ;;
+  *Package*) terminal bash -c "yay -Slq | fzf --multi --preview 'yay -Si {}' | xargs -ro yay -S --needed" ;;
+  *TUI*) terminal bash -c "yay -Slq | fzf --multi --preview 'yay -Si {}' | xargs -ro yay -S --needed" ;;
+  *Service*) show_install_service_menu ;;
+  *Style*) show_install_style_menu ;;
+  *Development*) show_install_development_menu ;;
+  *Editor*) show_install_editor_menu ;;
+  *Terminal*) show_install_terminal_menu ;;
+  *AI*) show_install_ai_menu ;;
+  *Gaming*) show_install_gaming_menu ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+show_install_service_menu() {
+  case $(menu "Install" "  Dropbox\n  Tailscale\n󱇱  NordVPN\n󰟵  Bitwarden") in
+  *Dropbox*) install "Dropbox" "dropbox" ;;
+  *Tailscale*) install "Tailscale" "tailscale" ;;
+  *NordVPN*) install "NordVPN" "nordvpn-bin" ;;
+  *Bitwarden*) install_and_launch "Bitwarden" "bitwarden bitwarden-cli" "bitwarden" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_style_menu() {
+  case $(menu "Install" "󰸌  Theme\n  Background\n  Font") in
+  *Theme*) theme-pick ;;
+  *Background*) theme-bg-next ;;
+  *Font*) show_install_font_menu ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_font_menu() {
+  case $(menu "Install" "  Cascadia Mono\n  Meslo LG Mono\n  Fira Code\n  Victor Mono\n  Bitstream Vera Mono\n  Iosevka") in
+  *Cascadia*) install "Cascadia Mono" "ttf-cascadia-mono-nerd" ;;
+  *Meslo*) install "Meslo LG Mono" "ttf-meslo-nerd" ;;
+  *Fira*) install "Fira Code" "ttf-firacode-nerd" ;;
+  *Victor*) install "Victor Mono" "ttf-victor-mono-nerd" ;;
+  *Bitstream*) install "Bitstream Vera Mono" "ttf-bitstream-vera-mono-nerd" ;;
+  *Iosevka*) install "Iosevka" "ttf-iosevka-nerd" ;;
+  *) back_to show_install_style_menu ;;
+  esac
+}
+
+show_install_editor_menu() {
+  case $(menu "Install" "  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Emacs") in
+  *VSCode*) install "VSCode" "visual-studio-code-bin" ;;
+  *Cursor*) install_and_launch "Cursor" "cursor-bin" "cursor" ;;
+  *Zed*) install_and_launch "Zed" "zed" "dev.zed.Zed" ;;
+  *Sublime*) install_and_launch "Sublime Text" "sublime-text-4" "sublime_text" ;;
+  *Helix*) install "Helix" "helix" ;;
+  *Emacs*) install "Emacs" "emacs-wayland" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_terminal_menu() {
+  case $(menu "Install" "  Alacritty\n  Ghostty\n  Kitty\n  WezTerm\n  Foot") in
+  *Alacritty*) install "Alacritty" "alacritty" ;;
+  *Ghostty*) install "Ghostty" "ghostty" ;;
+  *Kitty*) install "Kitty" "kitty" ;;
+  *WezTerm*) install "WezTerm" "wezterm" ;;
+  *Foot*) install "Foot" "foot" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_ai_menu() {
+  local ollama_pkg
+  ollama_pkg=$( (command -v nvidia-smi &>/dev/null && echo ollama-cuda) || (command -v rocminfo &>/dev/null && echo ollama-rocm) || echo ollama )
+
+  case $(menu "Install" "󱚤  Claude Code\n󱚤  Codex\n󱚤  Gemini CLI\n󱚤  LM Studio\n󱚤  Ollama") in
+  *Claude*) install "Claude Code" "claude-code" ;;
+  *Codex*) install "Codex" "openai-codex" ;;
+  *Gemini*) install "Gemini CLI" "gemini-cli" ;;
+  *Studio*) install "LM Studio" "lmstudio" ;;
+  *Ollama*) install "Ollama" "$ollama_pkg" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_gaming_menu() {
+  case $(menu "Install" "  Steam\n󰢹  GeForce NOW\n  RetroArch\n󰍳  Minecraft\n󰖺  Xbox Controller") in
+  *Steam*) install "Steam" "steam" ;;
+  *GeForce*) install "GeForce NOW" "geforcenow-electron" ;;
+  *RetroArch*) install_and_launch "RetroArch" "retroarch retroarch-assets-xmb libretro" "com.libretro.RetroArch" ;;
+  *Minecraft*) install_and_launch "Minecraft" "minecraft-launcher" "minecraft-launcher" ;;
+  *Xbox*) install "Xbox Controller" "xpadneo-dkms xone-dkms" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_development_menu() {
+  case $(menu "Install" "󰫏  Ruby on Rails\n  Docker\n  JavaScript\n  Go\n  PHP\n  Python\n  Elixir\n  Zig\n  Rust\n  Java\n  .NET\n  OCaml\n  Clojure\n  Scala") in
+  *Rails*) install "Ruby on Rails" "ruby ruby-bundler" ;;
+  *Docker*) install "Docker" "docker docker-compose docker-buildx" ;;
+  *JavaScript*) show_install_javascript_menu ;;
+  *Go*) install "Go" "go" ;;
+  *PHP*) install "PHP" "php composer" ;;
+  *Python*) install "Python" "python python-pip python-pipx" ;;
+  *Elixir*) install "Elixir" "elixir" ;;
+  *Zig*) install "Zig" "zig" ;;
+  *Rust*) float_terminal "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh" ;;
+  *Java*) install "Java" "jdk-openjdk" ;;
+  *NET*) install ".NET" "dotnet-sdk" ;;
+  *OCaml*) install "OCaml" "ocaml opam" ;;
+  *Clojure*) install "Clojure" "clojure" ;;
+  *Scala*) install "Scala" "scala sbt" ;;
+  *) back_to show_install_menu ;;
+  esac
+}
+
+show_install_javascript_menu() {
+  case $(menu "Install" "  Node.js\n  Bun\n  Deno") in
+  *Node*) install "Node.js" "nodejs npm" ;;
+  *Bun*) float_terminal "curl -fsSL https://bun.sh/install | bash" ;;
+  *Deno*) install "Deno" "deno" ;;
+  *) back_to show_install_development_menu ;;
+  esac
+}
+
+# ── Remove ───────────────────────────────────────────────────
+
+show_remove_menu() {
+  case $(menu "Remove" "󰣇  Package\n󰵮  Development\n󰈷  Fingerprint\n  Fido2") in
+  *Package*) terminal bash -c "yay -Qeq | fzf --multi --preview 'yay -Qi {}' | xargs -ro yay -Rns" ;;
+  *Development*) terminal bash -c "yay -Qeq | fzf --multi --preview 'yay -Qi {}' | xargs -ro yay -Rns" ;;
+  *Fingerprint*) float_terminal "fprintd-delete \$(whoami); read -n1" ;;
+  *Fido2*) float_terminal "echo 'Use systemd-cryptenroll --wipe-slot=fido2'; read -n1" ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+# ── Update ───────────────────────────────────────────────────
+
+show_update_menu() {
+  case $(menu "Update" "  System\n  Config\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
+  *System*) float_terminal "yay -Syu; read -n1" ;;
+  *Config*) show_setup_config_menu ;;
+  *Process*) show_restart_menu ;;
+  *Hardware*) show_hardware_menu ;;
+  *Firmware*) float_terminal "fwupdmgr refresh && fwupdmgr get-updates && fwupdmgr update; read -n1" ;;
+  *Timezone*) float_terminal "sudo timedatectl set-timezone \$(timedatectl list-timezones | fzf); read -n1" ;;
+  *Time*) float_terminal "sudo timedatectl set-ntp true && timedatectl status; read -n1" ;;
+  *Password*) show_update_password_menu ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+show_update_password_menu() {
+  case $(menu "Update Password" "  Drive Encryption\n  User") in
+  *Drive*) float_terminal "echo 'Use cryptsetup to change LUKS password'; read -n1" ;;
+  *User*) float_terminal "passwd; read -n1" ;;
+  *) back_to show_update_menu ;;
+  esac
 }
 
 # ── Restart ──────────────────────────────────────────────────
 
 show_restart_menu() {
-  case $(dmenu "Restart" "  Hypridle\n  SwayOSD\n󰌧  Walker\n󰍜  Waybar\n  Mako") in
+  case $(menu "Restart" "  Hypridle\n  SwayOSD\n󰌧  Walker\n󰍜  Waybar\n  Mako") in
   *Hypridle*) killall hypridle 2>/dev/null; hypridle &disown ;;
   *SwayOSD*) killall swayosd-server 2>/dev/null; swayosd-server -s ~/.config/themes/current/swayosd.css &disown ;;
   *Walker*) killall walker 2>/dev/null; sleep 0.3; walker --gapplication-service &disown ;;
   *Waybar*) killall waybar 2>/dev/null; sleep 0.3; waybar &disown ;;
   *Mako*) makoctl reload 2>/dev/null ;;
-  *) back_to show_main_menu ;;
+  *) back_to show_update_menu ;;
   esac
 }
 
 # ── System ───────────────────────────────────────────────────
 
 show_system_menu() {
-  case $(dmenu "System" "  Lock\n󰒲  Suspend\n󰍃  Logout\n󰜉  Restart\n󰐥  Shutdown") in
+  local options="󱄄  Screensaver\n  Lock\n󰒲  Suspend\n󰍃  Logout\n󰜉  Restart\n󰐥  Shutdown"
+
+  case $(menu "System" "$options") in
+  *Screensaver*) hyprlock ;;
   *Lock*) hyprlock ;;
   *Suspend*) systemctl suspend ;;
   *Logout*) hyprctl dispatch exit ;;
@@ -153,22 +407,31 @@ show_system_menu() {
 # ── Main ─────────────────────────────────────────────────────
 
 show_main_menu() {
-  go_to_menu "$(dmenu "Menu" "󰀻  Apps\n󱓞  Capture\n󰔎  Toggle\n  Style\n  Setup\n  Restart\n  System")"
+  go_to_menu "$(menu "Go" "󰀻  Apps\n󰧑  Learn\n󱓞  Trigger\n  Style\n  Setup\n󰉉  Install\n󰭌  Remove\n  Update\n󰋽  About\n  System")"
 }
 
 go_to_menu() {
   case "${1,,}" in
   *apps*)        walker ;;
+  *learn*)       show_learn_menu ;;
+  *trigger*)     show_trigger_menu ;;
+  *share*)       show_share_menu ;;
+  *background*)  theme-bg-next ;;
   *capture*)     show_capture_menu ;;
-  *toggle*)      show_toggle_menu ;;
   *style*)       show_style_menu ;;
+  *theme*)       theme-pick ;;
+  *screenrecord*) show_screenrecord_menu ;;
   *setup*)       show_setup_menu ;;
-  *restart*)     show_restart_menu ;;
+  *power*)       show_setup_power_menu ;;
+  *install*)     show_install_menu ;;
+  *remove*)      show_remove_menu ;;
+  *update*)      show_update_menu ;;
+  *about*)       float_terminal "fastfetch; read -n1" ;;
   *system*)      show_system_menu ;;
   esac
 }
 
-# Allow user extensions
+# Allow user extensions and overrides
 USER_EXTENSIONS="$HOME/.config/menu/extensions.sh"
 [[ -f $USER_EXTENSIONS ]] && source "$USER_EXTENSIONS"
 
