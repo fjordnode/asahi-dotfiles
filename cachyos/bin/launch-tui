@@ -1,0 +1,12 @@
+#!/bin/bash
+# Launch a TUI command in a floating kitty window with a unique app-id for window rules
+
+cmd=$(basename "$1")
+
+# Unblock radio for wifi/bluetooth
+case "$cmd" in
+  impala)    rfkill unblock wifi ;;
+  bluetui)   rfkill unblock bluetooth ;;
+esac
+
+exec kitty --app-id="tui.$cmd" -e "$@"

@@ -1,0 +1,48 @@
+keymap:
+  - name: Brave macOS-style shortcuts
+    application:
+      only: brave-browser
+    remap:
+      # Tabs & windows
+      Super-t: C-t          # New tab
+      Super-w: C-w          # Close tab
+      Super-Shift-t: C-Shift-t  # Reopen closed tab
+      Super-n: C-n          # New window
+      Super-Shift-n: C-Shift-n  # New private window
+
+      # Navigation
+      Super-l: C-l          # Focus address bar
+      Super-r: C-r          # Reload
+      Super-Shift-r: C-Shift-r  # Hard reload
+      Super-Left: Alt-Left   # Back
+      Super-Right: Alt-Right # Forward
+
+      # Edit
+      Super-a: C-a          # Select all
+      Super-c: C-c          # Copy
+      Super-v: C-v          # Paste
+      Super-Shift-v: Super-Shift-v  # Pass through to Hyprland clipboard manager
+      Super-x: C-x          # Cut
+      Super-z: C-z          # Undo
+      Super-Shift-z: C-Shift-z  # Redo
+
+      # Find (Super-f left for Hyprland fullscreen, use Ctrl+F directly)
+      Super-g: C-g          # Find next
+
+      # Zoom
+      Super-Equal: C-Equal  # Zoom in
+      Super-Minus: C-Minus  # Zoom out
+      Super-0: C-0          # Reset zoom
+
+      # Dev tools
+      Super-Shift-i: C-Shift-i  # Dev tools
+      Super-Shift-j: C-Shift-j  # Console
+
+      # Bookmarks
+      Super-d: C-d          # Bookmark
+      Super-Shift-b: C-Shift-b  # Bookmark bar
+
+      # Misc
+      Super-p: C-p          # Print
+      Super-Shift-Delete: C-Shift-Delete  # Clear browsing data
+      Super-q: C-q          # Quit

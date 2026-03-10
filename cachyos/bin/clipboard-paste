@@ -1,0 +1,86 @@
+#!/bin/bash
+# Smart clipboard paste — picks entry via fuzzel, restores focus, pastes with app-appropriate keys
+
+set -eu
+
+current_window_info() {
+  local address active_class
+
+  if command -v jq >/dev/null 2>&1; then
+    address=$(hyprctl activewindow -j 2>/dev/null | jq -r '.address // ""')
+    active_class=$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // ""')
+  else
+    address=$(hyprctl activewindow 2>/dev/null | awk -F': ' '/^address: / { print $2; exit }')
+    active_class=$(hyprctl activewindow 2>/dev/null | awk -F': ' '/^class: / { print $2; exit }')
+  fi
+
+  printf '%s\t%s\n' "$address" "${active_class,,}"
+}
+
+focused_window_address() {
+  if command -v jq >/dev/null 2>&1; then
+    hyprctl activewindow -j 2>/dev/null | jq -r '.address // ""'
+  else
+    hyprctl activewindow 2>/dev/null | awk -F': ' '/^address: / { print $2; exit }'
+  fi
+}
+
+restore_focus() {
+  local target_address=$1
+  local current_address
+
+  [[ -n $target_address ]] || return 1
+
+  hyprctl dispatch focuswindow "address:$target_address" >/dev/null 2>&1 || return 1
+
+  for _ in {1..20}; do
+    current_address=$(focused_window_address)
+    [[ $current_address == "$target_address" ]] && return 0
+    sleep 0.02
+  done
+
+  return 1
+}
+
+paste_selected() {
+  local target_class=$1
+
+  case "$target_class" in
+    *brave*)
+      wtype -s 40 -M ctrl -k v -m ctrl
+      ;;
+    *ghostty*|*kitty*|*alacritty*|*wezterm*|*foot*)
+      wtype -s 40 -M ctrl -M shift -k v -m shift -m ctrl
+      ;;
+    *)
+      wtype -s 40 -M shift -k Insert -m shift
+      ;;
+  esac
+}
+
+select_clipboard_entry() {
+  if command -v fuzzel >/dev/null 2>&1; then
+    cliphist list | fuzzel --dmenu --prompt="Clipboard "
+  else
+    cliphist list | walker --dmenu --placeholder "Clipboard"
+  fi
+}
+
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/clipboard-paste.lock"
+flock -n 9 || exit 0
+
+IFS=$'\t' read -r target_address target_class < <(current_window_info)
+
+selected=$(select_clipboard_entry || true)
+
+if [[ -n $selected ]]; then
+  printf '%s' "$selected" | cliphist decode | wl-copy
+
+  if restore_focus "$target_address"; then
+    :
+  else
+    sleep 0.2
+  fi
+
+  paste_selected "$target_class"
+fi

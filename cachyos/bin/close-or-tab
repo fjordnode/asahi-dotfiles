@@ -1,0 +1,8 @@
+#!/bin/sh
+# SUPER+W: close tab in Brave, close window everywhere else
+class=$(hyprctl activewindow -j | jq -r '.class')
+if [ "$class" = "brave-browser" ]; then
+    wtype -M ctrl -k w -m ctrl
+else
+    hyprctl dispatch killactive
+fi

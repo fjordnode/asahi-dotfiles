@@ -1,0 +1,147 @@
+/* Tokyo Night colors — standalone (no external theme import) */
+@define-color background #1a1b26;
+@define-color foreground #c0caf5;
+@define-color accent     #e68e0d;
+
+* {
+  background-color: @background;
+  color: @foreground;
+
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  font-family: 'JetBrainsMono Nerd Font';
+  font-size: 15px;
+}
+
+.modules-left {
+  margin-left: 8px;
+}
+
+.modules-right {
+  margin-right: 8px;
+}
+
+/* --- Workspaces --- */
+
+#workspaces button {
+  all: initial;
+  padding: 0 6px;
+  margin: 0 1.5px;
+  min-width: 9px;
+}
+
+#workspaces button.empty {
+  opacity: 0.35;
+}
+
+#workspaces button.active {
+  color: #e68e0d;
+}
+
+/* --- Center group: media + clock --- */
+
+.modules-center {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 0 4px;
+  margin: 3px 0;
+}
+
+#clock {
+  padding: 0 8px;
+}
+
+#mpris {
+  padding: 0 8px;
+  opacity: 0.7;
+}
+
+#mpris.playing {
+  color: #e68e0d;
+  opacity: 1;
+}
+
+#mpris.paused {
+  opacity: 0.5;
+}
+
+#mpris.stopped {
+  padding: 0;
+  margin: 0;
+}
+
+/* --- Right-side group --- */
+
+.modules-right > widget > * {
+  margin: 0;
+}
+
+#group-tray-expander,
+#bluetooth,
+#network,
+#pulseaudio,
+#cpu,
+#memory,
+#battery {
+  padding: 0 7px;
+}
+
+/* Pill around audio + system modules */
+#pulseaudio,
+#cpu,
+#memory,
+#battery {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  margin: 3px 0;
+}
+
+#pulseaudio {
+  border-radius: 6px 0 0 6px;
+  padding-left: 10px;
+}
+
+#battery {
+  border-radius: 0 6px 6px 0;
+  padding-right: 10px;
+}
+
+/* Icon-only modules slightly dimmer */
+#cpu,
+#memory,
+#bluetooth,
+#network,
+#pulseaudio {
+  opacity: 0.7;
+}
+
+/* Tray */
+#tray {
+  margin-right: 4px;
+}
+
+#custom-expand-icon {
+  padding: 0 6px;
+  opacity: 0.7;
+}
+
+/* --- Battery states --- */
+
+#battery.warning {
+  color: #f9e2af;
+}
+
+#battery.critical {
+  color: #f38ba8;
+}
+
+/* --- Tooltip --- */
+
+tooltip {
+  padding: 2px;
+}
+
+.hidden {
+  opacity: 0;
+}

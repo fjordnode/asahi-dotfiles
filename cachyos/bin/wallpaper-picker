@@ -1,0 +1,12 @@
+#!/bin/bash
+# Visual wallpaper picker using WallRizz thumbnail grid
+
+wallpaper_dir="${1:-$HOME/Pictures/wallpapers}"
+
+if [[ ! -d "$wallpaper_dir" ]]; then
+  echo "Wallpaper directory not found: $wallpaper_dir"
+  echo "Usage: wallpaper-picker [directory]"
+  exit 1
+fi
+
+WallRizz -e -d "$wallpaper_dir" --img-size 30x10 --grid-size 3x4
