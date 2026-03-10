@@ -44,17 +44,17 @@ open_in_editor() {
 }
 
 install() {
-  float_terminal "echo 'Installing $1...'; yay -S --needed $2 && echo 'Done!' && read -n1"
+  float_terminal "echo 'Installing $1...'; paru -S --needed $2 && echo 'Done!' && read -n1"
 }
 
 install_and_launch() {
-  float_terminal "echo 'Installing $1...'; yay -S --needed $2 && echo 'Done!' && read -n1; setsid gtk-launch $3 2>/dev/null &"
+  float_terminal "echo 'Installing $1...'; paru -S --needed $2 && echo 'Done!' && read -n1; setsid gtk-launch $3 2>/dev/null &"
 }
 
 # ── Learn ────────────────────────────────────────────────────
 
 show_learn_menu() {
-  case $(menu "Learn" "  Keybindings\n  Hyprland\n󰣇  Arch\n  Neovim\n󱆃  Bash") in
+  case $(menu "Learn" "󰌌  Keybindings\n󰖬  Hyprland\n󰣇  Arch\n󰒍  Neovim\n󱆃  Bash") in
   *Keybindings*) xdg-open "https://wiki.hyprland.org/Configuring/Binds/" ;;
   *Hyprland*) xdg-open "https://wiki.hypr.land/" ;;
   *Arch*) xdg-open "https://wiki.archlinux.org/title/Main_page" ;;
@@ -67,7 +67,7 @@ show_learn_menu() {
 # ── Trigger ──────────────────────────────────────────────────
 
 show_trigger_menu() {
-  case $(menu "Trigger" "  Capture\n  Share\n󰔎  Toggle\n  Hardware") in
+  case $(menu "Trigger" "󰹑  Capture\n󰕁  Share\n󰔎  Toggle\n󰒓  Hardware") in
   *Capture*) show_capture_menu ;;
   *Share*) show_share_menu ;;
   *Toggle*) show_toggle_menu ;;
@@ -77,7 +77,7 @@ show_trigger_menu() {
 }
 
 show_capture_menu() {
-  case $(menu "Capture" "  Screenshot\n  Screenrecord\n󰃉  Color") in
+  case $(menu "Capture" "󰹑  Screenshot\n󰕧  Screenrecord\n󰃉  Color") in
   *Screenshot*) grim -g "$(slurp)" - | satty -f - ;;
   *Screenrecord*) show_screenrecord_menu ;;
   *Color*) pkill hyprpicker || hyprpicker -a ;;
@@ -94,7 +94,7 @@ show_screenrecord_menu() {
 
   local outfile="$HOME/Videos/recording-$(date +%Y%m%d-%H%M%S).mp4"
 
-  case $(menu "Screenrecord" "  With no audio\n  With desktop audio\n  With desktop + microphone audio") in
+  case $(menu "Screenrecord" "󰝟  With no audio\n󰕾  With desktop audio\n󰍬  With desktop + microphone audio") in
   *"With no audio"*) wf-recorder -g "$(slurp)" -f "$outfile" &disown ;;
   *"With desktop audio"*) wf-recorder -g "$(slurp)" --audio -f "$outfile" &disown ;;
   *"With desktop + microphone"*) wf-recorder -g "$(slurp)" --audio -f "$outfile" &disown ;;
@@ -103,7 +103,7 @@ show_screenrecord_menu() {
 }
 
 show_share_menu() {
-  case $(menu "Share" "  Clipboard\n  File\n  Folder") in
+  case $(menu "Share" "󰅇  Clipboard\n󰈔  File\n󰉋  Folder") in
   *Clipboard*) wl-paste | wl-copy ;;
   *File*) xdg-open "$(zenity --file-selection 2>/dev/null)" 2>/dev/null ;;
   *Folder*) dolphin "$(pwd)" ;;
@@ -122,7 +122,7 @@ show_toggle_menu() {
 }
 
 show_hardware_menu() {
-  case $(menu "Hardware" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth") in
+  case $(menu "Hardware" "󰕾  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth") in
   *Audio*) float_terminal "systemctl --user restart pipewire pipewire-pulse wireplumber && echo 'PipeWire restarted' && sleep 2" ;;
   *Wi-Fi*) float_terminal "nmcli radio wifi off && sleep 1 && nmcli radio wifi on && echo 'Wi-Fi restarted' && sleep 2" ;;
   *Bluetooth*) float_terminal "sudo systemctl restart bluetooth && echo 'Bluetooth restarted' && sleep 2" ;;
@@ -145,10 +145,10 @@ show_style_menu() {
 # ── Setup ────────────────────────────────────────────────────
 
 show_setup_menu() {
-  local options="  Audio\n  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n  System Sleep\n󰍹  Monitors"
-  [[ -f ~/.config/hypr/bindings.conf ]] && options="$options\n  Keybindings"
-  [[ -f ~/.config/hypr/input.conf ]] && options="$options\n  Input"
-  options="$options\n  Security\n  Config"
+  local options="󰕾  Audio\n󰖩  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n  System Sleep\n󰍹  Monitors"
+  [[ -f ~/.config/hypr/bindings.conf ]] && options="$options\n󰌌  Keybindings"
+  [[ -f ~/.config/hypr/input.conf ]] && options="$options\n󰥻  Input"
+  options="$options\n󰒃  Security\n󰒓  Config"
 
   case $(menu "Setup" "$options") in
   *Audio*) pavucontrol ;;
@@ -193,7 +193,7 @@ show_setup_system_menu() {
 }
 
 show_setup_security_menu() {
-  case $(menu "Security" "󰈷  Fingerprint\n  Fido2") in
+  case $(menu "Security" "󰈷  Fingerprint\n󰌆  Fido2") in
   *Fingerprint*) float_terminal "fprintd-enroll; read -n1" ;;
   *Fido2*) float_terminal "echo 'Use systemd-cryptenroll for FIDO2 setup'; read -n1" ;;
   *) back_to show_setup_menu ;;
@@ -201,7 +201,7 @@ show_setup_security_menu() {
 }
 
 show_setup_config_menu() {
-  case $(menu "Config" "  Hyprland\n  Hypridle\n  Hyprlock\n  SwayOSD\n󰌧  Walker\n󰍜  Waybar\n  Mako") in
+  case $(menu "Config" "󰖬  Hyprland\n󰒲  Hypridle\n󰌾  Hyprlock\n󰜎  SwayOSD\n󰌧  Walker\n󰍜  Waybar\n󰂞  Mako") in
   *Hyprland*) open_in_editor ~/.config/hypr/hyprland.conf ;;
   *Hypridle*) open_in_editor ~/.config/hypr/hypridle.conf ;;
   *Hyprlock*) open_in_editor ~/.config/hypr/hyprlock.conf ;;
@@ -216,10 +216,10 @@ show_setup_config_menu() {
 # ── Install ──────────────────────────────────────────────────
 
 show_install_menu() {
-  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n󱚤  AI\n  Gaming") in
-  *"AUR"*) terminal yay ;;
-  *Package*) terminal bash -c "yay -Slq | fzf --multi --preview 'yay -Si {}' | xargs -ro yay -S --needed" ;;
-  *TUI*) terminal bash -c "yay -Slq | fzf --multi --preview 'yay -Si {}' | xargs -ro yay -S --needed" ;;
+  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n󰘳  TUI\n󰡨  Service\n󰸌  Style\n󰵮  Development\n󰏬  Editor\n󰆍  Terminal\n󱚤  AI\n󰊗  Gaming") in
+  *"AUR"*) terminal paru ;;
+  *Package*) terminal bash -c "paru -Slq | fzf --multi --preview 'paru -Si {}' | xargs -ro paru -S --needed" ;;
+  *TUI*) terminal bash -c "paru -Slq | fzf --multi --preview 'paru -Si {}' | xargs -ro paru -S --needed" ;;
   *Service*) show_install_service_menu ;;
   *Style*) show_install_style_menu ;;
   *Development*) show_install_development_menu ;;
@@ -232,7 +232,7 @@ show_install_menu() {
 }
 
 show_install_service_menu() {
-  case $(menu "Install" "  Dropbox\n  Tailscale\n󱇱  NordVPN\n󰟵  Bitwarden") in
+  case $(menu "Install" "󰇣  Dropbox\n󰖟  Tailscale\n󱇱  NordVPN\n󰟵  Bitwarden") in
   *Dropbox*) install "Dropbox" "dropbox" ;;
   *Tailscale*) install "Tailscale" "tailscale" ;;
   *NordVPN*) install "NordVPN" "nordvpn-bin" ;;
@@ -242,7 +242,7 @@ show_install_service_menu() {
 }
 
 show_install_style_menu() {
-  case $(menu "Install" "󰸌  Theme\n  Background\n  Font") in
+  case $(menu "Install" "󰸌  Theme\n󰋩  Background\n󰛖  Font") in
   *Theme*) theme-pick ;;
   *Background*) theme-bg-next ;;
   *Font*) show_install_font_menu ;;
@@ -251,7 +251,7 @@ show_install_style_menu() {
 }
 
 show_install_font_menu() {
-  case $(menu "Install" "  Cascadia Mono\n  Meslo LG Mono\n  Fira Code\n  Victor Mono\n  Bitstream Vera Mono\n  Iosevka") in
+  case $(menu "Install" "󰛖  Cascadia Mono\n󰛖  Meslo LG Mono\n󰛖  Fira Code\n󰛖  Victor Mono\n󰛖  Bitstream Vera Mono\n󰛖  Iosevka") in
   *Cascadia*) install "Cascadia Mono" "ttf-cascadia-mono-nerd" ;;
   *Meslo*) install "Meslo LG Mono" "ttf-meslo-nerd" ;;
   *Fira*) install "Fira Code" "ttf-firacode-nerd" ;;
@@ -263,7 +263,7 @@ show_install_font_menu() {
 }
 
 show_install_editor_menu() {
-  case $(menu "Install" "  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Emacs") in
+  case $(menu "Install" "󰨞  VSCode\n󰨞  Cursor\n󰨞  Zed\n󰨞  Sublime Text\n󰨞  Helix\n󰨞  Emacs") in
   *VSCode*) install "VSCode" "visual-studio-code-bin" ;;
   *Cursor*) install_and_launch "Cursor" "cursor-bin" "cursor" ;;
   *Zed*) install_and_launch "Zed" "zed" "dev.zed.Zed" ;;
@@ -275,7 +275,7 @@ show_install_editor_menu() {
 }
 
 show_install_terminal_menu() {
-  case $(menu "Install" "  Alacritty\n  Ghostty\n  Kitty\n  WezTerm\n  Foot") in
+  case $(menu "Install" "󰆍  Alacritty\n󰆍  Ghostty\n󰆍  Kitty\n󰆍  WezTerm\n󰆍  Foot") in
   *Alacritty*) install "Alacritty" "alacritty" ;;
   *Ghostty*) install "Ghostty" "ghostty" ;;
   *Kitty*) install "Kitty" "kitty" ;;
@@ -300,7 +300,7 @@ show_install_ai_menu() {
 }
 
 show_install_gaming_menu() {
-  case $(menu "Install" "  Steam\n󰢹  GeForce NOW\n  RetroArch\n󰍳  Minecraft\n󰖺  Xbox Controller") in
+  case $(menu "Install" "󰓓  Steam\n󰢹  GeForce NOW\n󰊗  RetroArch\n󰍳  Minecraft\n󰖺  Xbox Controller") in
   *Steam*) install "Steam" "steam" ;;
   *GeForce*) install "GeForce NOW" "geforcenow-electron" ;;
   *RetroArch*) install_and_launch "RetroArch" "retroarch retroarch-assets-xmb libretro" "com.libretro.RetroArch" ;;
@@ -311,7 +311,7 @@ show_install_gaming_menu() {
 }
 
 show_install_development_menu() {
-  case $(menu "Install" "󰫏  Ruby on Rails\n  Docker\n  JavaScript\n  Go\n  PHP\n  Python\n  Elixir\n  Zig\n  Rust\n  Java\n  .NET\n  OCaml\n  Clojure\n  Scala") in
+  case $(menu "Install" "󰫏  Ruby on Rails\n󰡨  Docker\n󰌞  JavaScript\n󰟓  Go\n󰌟  PHP\n󰌠  Python\n󰘧  Elixir\n󰘧  Zig\n󱘗  Rust\n󰬷  Java\n󰪮  .NET\n󰘧  OCaml\n󰘧  Clojure\n󰘧  Scala") in
   *Rails*) install "Ruby on Rails" "ruby ruby-bundler" ;;
   *Docker*) install "Docker" "docker docker-compose docker-buildx" ;;
   *JavaScript*) show_install_javascript_menu ;;
@@ -331,7 +331,7 @@ show_install_development_menu() {
 }
 
 show_install_javascript_menu() {
-  case $(menu "Install" "  Node.js\n  Bun\n  Deno") in
+  case $(menu "Install" "󰎙  Node.js\n󰜫  Bun\n󰦕  Deno") in
   *Node*) install "Node.js" "nodejs npm" ;;
   *Bun*) float_terminal "curl -fsSL https://bun.sh/install | bash" ;;
   *Deno*) install "Deno" "deno" ;;
@@ -342,9 +342,9 @@ show_install_javascript_menu() {
 # ── Remove ───────────────────────────────────────────────────
 
 show_remove_menu() {
-  case $(menu "Remove" "󰣇  Package\n󰵮  Development\n󰈷  Fingerprint\n  Fido2") in
-  *Package*) terminal bash -c "yay -Qeq | fzf --multi --preview 'yay -Qi {}' | xargs -ro yay -Rns" ;;
-  *Development*) terminal bash -c "yay -Qeq | fzf --multi --preview 'yay -Qi {}' | xargs -ro yay -Rns" ;;
+  case $(menu "Remove" "󰣇  Package\n󰵮  Development\n󰈷  Fingerprint\n󰌆  Fido2") in
+  *Package*) terminal bash -c "paru -Qeq | fzf --multi --preview 'paru -Qi {}' | xargs -ro paru -Rns" ;;
+  *Development*) terminal bash -c "paru -Qeq | fzf --multi --preview 'paru -Qi {}' | xargs -ro paru -Rns" ;;
   *Fingerprint*) float_terminal "fprintd-delete \$(whoami); read -n1" ;;
   *Fido2*) float_terminal "echo 'Use systemd-cryptenroll --wipe-slot=fido2'; read -n1" ;;
   *) back_to show_main_menu ;;
@@ -354,8 +354,8 @@ show_remove_menu() {
 # ── Update ───────────────────────────────────────────────────
 
 show_update_menu() {
-  case $(menu "Update" "  System\n  Config\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
-  *System*) float_terminal "yay -Syu; read -n1" ;;
+  case $(menu "Update" "󰚰  System\n󰒓  Config\n󰑙  Process\n󰇅  Hardware\n󰘚  Firmware\n󰌆  Password\n󰥔  Timezone\n󰅐  Time") in
+  *System*) float_terminal "paru -Syu; read -n1" ;;
   *Config*) show_setup_config_menu ;;
   *Process*) show_restart_menu ;;
   *Hardware*) show_hardware_menu ;;
@@ -368,7 +368,7 @@ show_update_menu() {
 }
 
 show_update_password_menu() {
-  case $(menu "Update Password" "  Drive Encryption\n  User") in
+  case $(menu "Update Password" "󰌆  Drive Encryption\n󰀄  User") in
   *Drive*) float_terminal "echo 'Use cryptsetup to change LUKS password'; read -n1" ;;
   *User*) float_terminal "passwd; read -n1" ;;
   *) back_to show_update_menu ;;
@@ -378,7 +378,7 @@ show_update_password_menu() {
 # ── Restart ──────────────────────────────────────────────────
 
 show_restart_menu() {
-  case $(menu "Restart" "  Hypridle\n  SwayOSD\n󰌧  Walker\n󰍜  Waybar\n  Mako") in
+  case $(menu "Restart" "󰒲  Hypridle\n󰜎  SwayOSD\n󰌧  Walker\n󰍜  Waybar\n󰂞  Mako") in
   *Hypridle*) killall hypridle 2>/dev/null; hypridle &disown ;;
   *SwayOSD*) killall swayosd-server 2>/dev/null; swayosd-server -s ~/.config/themes/current/swayosd.css &disown ;;
   *Walker*) killall walker 2>/dev/null; sleep 0.3; walker --gapplication-service &disown ;;
@@ -391,7 +391,7 @@ show_restart_menu() {
 # ── System ───────────────────────────────────────────────────
 
 show_system_menu() {
-  local options="󱄄  Screensaver\n  Lock\n󰒲  Suspend\n󰍃  Logout\n󰜉  Restart\n󰐥  Shutdown"
+  local options="󱄄  Screensaver\n󰌾  Lock\n󰒲  Suspend\n󰍃  Logout\n󰜉  Restart\n󰐥  Shutdown"
 
   case $(menu "System" "$options") in
   *Screensaver*) hyprlock ;;
@@ -407,7 +407,7 @@ show_system_menu() {
 # ── Main ─────────────────────────────────────────────────────
 
 show_main_menu() {
-  go_to_menu "$(menu "Go" "󰀻  Apps\n󰧑  Learn\n󱓞  Trigger\n  Style\n  Setup\n󰉉  Install\n󰭌  Remove\n  Update\n󰋽  About\n  System")"
+  go_to_menu "$(menu "Go" "󰀻  Apps\n󰧑  Learn\n󱓞  Trigger\n󰸌  Style\n󰒓  Setup\n󰉉  Install\n󰭌  Remove\n󰚰  Update\n󰋽  About\n󰐥  System")"
 }
 
 go_to_menu() {
