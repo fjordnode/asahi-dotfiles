@@ -70,8 +70,8 @@ function GetEntries()
             Preview = preview_path,
             PreviewType = "file",
             Actions = {
-              activate = "theme-set " .. theme_name,
-              preview = "theme-preview " .. theme_name,
+              activate = home .. "/.local/bin/theme-set " .. theme_name,
+              preview = home .. "/.local/bin/theme-preview " .. theme_name,
             },
           })
         end

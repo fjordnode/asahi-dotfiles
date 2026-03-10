@@ -1,0 +1,39 @@
+#!/bin/bash
+# Hook called by theme-set after applying a theme
+# Updates apps that aren't handled by theme-set itself
+
+CURRENT_DIR="$HOME/.config/themes/current"
+COLORS_FILE="$CURRENT_DIR/colors.toml"
+
+[[ -f $COLORS_FILE ]] || exit 0
+
+# Read colors from theme
+get_color() {
+  grep "^$1" "$COLORS_FILE" | head -1 | sed 's/.*"\(#[^"]*\)".*/\1/'
+}
+
+# Update yoink theme
+mkdir -p "$HOME/.config/yoink"
+cat > "$HOME/.config/yoink/theme.toml" <<EOF
+accent              = "$(get_color accent)"
+foreground          = "$(get_color foreground)"
+background          = "$(get_color background)"
+selection_foreground = "$(get_color selection_foreground)"
+selection_background = "$(get_color selection_background)"
+color0              = "$(get_color color0)"
+color8              = "$(get_color color8)"
+color15             = "$(get_color color15)"
+EOF
+
+# Update fuzzel colors
+if [[ -f "$CURRENT_DIR/fuzzel.ini" ]]; then
+  mkdir -p "$HOME/.config/fuzzel"
+  cp "$CURRENT_DIR/fuzzel.ini" "$HOME/.config/fuzzel/fuzzel.ini"
+fi
+
+# Update dunst colors
+if [[ -f "$CURRENT_DIR/dunstrc" ]]; then
+  mkdir -p "$HOME/.config/dunst"
+  cp "$CURRENT_DIR/dunstrc" "$HOME/.config/dunst/dunstrc"
+  pkill dunst 2>/dev/null; dunst &disown
+fi

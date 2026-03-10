@@ -22,7 +22,7 @@ menu() {
   shift 2
 
   if command -v fuzzel >/dev/null 2>&1; then
-    echo -e "$options" | fuzzel --dmenu --prompt="$prompt… " --width=28 "$@"
+    echo -e "$options" | fuzzel --dmenu --prompt="$prompt… " --width=18 "$@"
   elif command -v walker >/dev/null 2>&1; then
     echo -e "$options" | walker --dmenu --placeholder "$prompt…" --width 295 "$@"
   else

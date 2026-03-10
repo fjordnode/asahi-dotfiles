@@ -12,7 +12,7 @@ PKGS=(
 
   # Bar & notifications
   waybar
-  mako
+  dunst                 # notification daemon
   swayosd-git          # AUR: on-screen display for vol/brightness
 
   # Launcher
@@ -75,6 +75,8 @@ PKGS=(
   ripgrep
   fd
   bat
+  go                    # needed for yoink
+  github-cli            # gh auth for dotfiles repo
 
   # Polkit
   polkit-kde-agent
@@ -90,6 +92,13 @@ for tool in impala bluetui; do
     cargo install "$tool"
   fi
 done
+
+# Install yoink clipboard manager
+if ! command -v yoink >/dev/null 2>&1; then
+  echo "Installing yoink clipboard manager..."
+  go install github.com/fjordnode/yoink@latest
+  cp ~/go/bin/yoink ~/.local/bin/yoink
+fi
 
 echo ""
 echo "Done! Next steps:"

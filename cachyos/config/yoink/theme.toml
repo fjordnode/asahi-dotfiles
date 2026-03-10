@@ -1,0 +1,8 @@
+accent              = "#e68e0d"
+foreground          = "#bebebe"
+background          = "#121212"
+selection_foreground = "#bebebe"
+selection_background = "#333333"
+color0              = "#333333"
+color8              = "#8a8a8d"
+color15             = "#ffffff"

@@ -1,0 +1,35 @@
+[global]
+    monitor = 0
+    follow = keyboard
+    width = 350
+    offset = (10, 10)
+    origin = top-right
+    notification_limit = 3
+    timeout = 5
+    font = JetBrainsMono Nerd Font 11
+    corner_radius = 8
+    frame_width = 2
+    frame_color = "#e68e0d"
+    separator_color = frame
+    padding = 10
+    horizontal_padding = 12
+    layer = overlay
+    mouse_left_click = do_action, close_current
+    mouse_right_click = close_current
+    mouse_middle_click = close_all
+
+[urgency_low]
+    background = "#121212"
+    foreground = "#bebebe"
+    frame_color = "#333333"
+
+[urgency_normal]
+    background = "#121212"
+    foreground = "#bebebe"
+    frame_color = "#e68e0d"
+
+[urgency_critical]
+    background = "#121212"
+    foreground = "#bebebe"
+    frame_color = "#D35F5F"
+    timeout = 0

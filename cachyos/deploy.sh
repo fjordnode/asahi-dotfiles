@@ -12,7 +12,7 @@ cp -r "$SCRIPT_DIR/templates" "$DOTFILES_DIR/"
 
 echo ""
 echo "Copying configs..."
-for dir in hypr waybar walker xremap kitty mako elephant fontconfig; do
+for dir in hypr waybar walker xremap kitty mako dunst fuzzel satty yoink elephant fontconfig; do
   src="$SCRIPT_DIR/config/$dir"
   dst="$HOME/.config/$dir"
   if [[ -d "$src" ]]; then
@@ -32,13 +32,20 @@ done
 echo ""
 echo "Installing systemd services..."
 mkdir -p "$HOME/.config/systemd/user"
-cp "$SCRIPT_DIR/config/systemd/"*.service "$HOME/.config/systemd/user/"
+cp "$SCRIPT_DIR/config/systemd/user/"*.service "$HOME/.config/systemd/user/" 2>/dev/null || \
+  cp "$SCRIPT_DIR/config/systemd/"*.service "$HOME/.config/systemd/user/" 2>/dev/null || true
 systemctl --user daemon-reload
 systemctl --user enable elephant.service
 
 echo ""
 echo "Setting up theme directories..."
 mkdir -p "$HOME/.config/themes/"{current,custom,backgrounds,hooks,templates}
+
+# Install theme hooks
+if [[ -d "$SCRIPT_DIR/config/themes/hooks" ]]; then
+  cp -v "$SCRIPT_DIR/config/themes/hooks/"* "$HOME/.config/themes/hooks/"
+  chmod +x "$HOME/.config/themes/hooks/"*
+fi
 
 # Apply default theme if none set
 if [[ ! -f "$HOME/.config/themes/current.name" ]]; then
