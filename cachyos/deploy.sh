@@ -12,7 +12,7 @@ cp -r "$SCRIPT_DIR/templates" "$DOTFILES_DIR/"
 
 echo ""
 echo "Copying configs..."
-for dir in hypr waybar walker xremap kitty mako elephant; do
+for dir in hypr waybar walker xremap kitty mako elephant fontconfig; do
   src="$SCRIPT_DIR/config/$dir"
   dst="$HOME/.config/$dir"
   if [[ -d "$src" ]]; then
